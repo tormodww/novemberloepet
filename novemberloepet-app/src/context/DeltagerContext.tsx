@@ -42,6 +42,9 @@ type DeltagerContextType = {
   setDeltagerStatus: (startnummer: string, status: DeltagerStatus) => void;
   setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
   updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
+  pendingOps: PendingOp[];
+  retryOp: (id: string) => void;
+  clearOp: (id: string) => void;
 };
 
 const DeltagerContext = createContext<DeltagerContextType | undefined>(undefined);
@@ -64,7 +67,14 @@ type PendingOp = {
   parseId?: string | null;
   attempts: number;
   lastError?: string | null;
+  nextAttemptAt?: number | null;
 };
+
+function computeBackoff(attempts: number) {
+  const a = Math.max(1, attempts || 1);
+  const backoff = 2000 * Math.pow(2, a - 1);
+  return Math.min(60000, backoff);
+}
 
 const generatedTestDeltagere = (() => {
   const bikes = [
@@ -150,7 +160,7 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
 
   function enqueueOp(op: PendingOp) {
     setPendingOps(prev => {
-      const next = [...prev, op];
+      const next = [...prev, { ...op, nextAttemptAt: null }];
       persistOps(next);
       return next;
     });
@@ -215,16 +225,28 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
           }
         }
 
-        // if we reach here, update attempt count and keep in queue
+        // if we reach here, update attempt count and keep in queue; schedule next attempt
         setPendingOps(prev => {
-          const next = prev.map(p => p.id === op.id ? { ...p, attempts: (p.attempts || 0) + 1, lastError: 'failed attempt' } : p);
+          const next = prev.map(p => {
+            if (p.id !== op.id) return p;
+            const attempts = (p.attempts || 0) + 1;
+            const backoff = computeBackoff(attempts);
+            const nextAttemptAt = Date.now() + backoff;
+            return { ...p, attempts, lastError: 'failed attempt', nextAttemptAt };
+          });
           persistOps(next);
           return next;
         });
       } catch (e: any) {
         // increment attempts
         setPendingOps(prev => {
-          const next = prev.map(p => p.id === op.id ? { ...p, attempts: (p.attempts || 0) + 1, lastError: String(e?.message || e) } : p);
+          const next = prev.map(p => {
+            if (p.id !== op.id) return p;
+            const attempts = (p.attempts || 0) + 1;
+            const backoff = computeBackoff(attempts);
+            const nextAttemptAt = Date.now() + backoff;
+            return { ...p, attempts, lastError: String(e?.message || e), nextAttemptAt };
+          });
           persistOps(next);
           return next;
         });
@@ -402,7 +424,29 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <DeltagerContext.Provider value={{ deltagere, addDeltager, updateResultater, setEtappeStatus, editDeltager, deleteDeltager, setDeltagerStatus, setMultipleDeltagerStatus, updateDeltager }}>
+    <DeltagerContext.Provider value={{
+      deltagere,
+      addDeltager,
+      updateResultater,
+      setEtappeStatus,
+      editDeltager,
+      deleteDeltager,
+      setDeltagerStatus,
+      setMultipleDeltagerStatus,
+      updateDeltager,
+      // queue API
+      pendingOps,
+      retryOp: (id: string) => {
+        // expose retryOp via provider wrapper
+        setPendingOps(prev => {
+          const next = prev.map(p => p.id === id ? { ...p, attempts: 0, lastError: null, nextAttemptAt: null } : p);
+          persistOps(next);
+          return next;
+        });
+        setTimeout(() => { processQueue(); }, 200);
+      },
+      clearOp: (id: string) => removeOp(id),
+    }}>
       {children}
     </DeltagerContext.Provider>
   );

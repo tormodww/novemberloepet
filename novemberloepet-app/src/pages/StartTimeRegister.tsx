@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { Box, Typography, TextField, Button, Paper, Autocomplete, Stack } from '@mui/material';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 function formatStartTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
@@ -15,9 +16,9 @@ function formatStartTimeInput(input: string): string {
 const StartTimeRegister: React.FC = () => {
   const { deltagere, editDeltager } = useDeltagerContext();
   const { etapper } = useEtappeContext();
-  const [startnummer, setStartnummer] = useState('');
-  const [selected, setSelected] = useState<Deltager | null>(null);
-  const [inputTid, setInputTid] = useState('');
+  const [startnummer, setStartnummer] = usePersistentState<string>('starttime.startnummer', '');
+  const [selected, setSelected] = usePersistentState<Deltager | null>('starttime.selected', null);
+  const [inputTid, setInputTid] = usePersistentState<string>('starttime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
 
   const searchRef = useRef<HTMLInputElement | null>(null);

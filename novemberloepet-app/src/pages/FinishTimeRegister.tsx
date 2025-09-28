@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import {
-  Box, Typography, TextField, Button, Paper, MenuItem, Autocomplete, Grid, Stack, InputAdornment, IconButton,
+  Box, Typography, TextField, Button, Paper, Autocomplete, Stack, InputAdornment, IconButton,
   Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, DialogActions, Snackbar, Alert, Chip
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ListIcon from '@mui/icons-material/List';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 function formatTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
@@ -20,10 +21,10 @@ function formatTimeInput(input: string): string {
 const FinishTimeRegister: React.FC = () => {
   const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
   const { etapper } = useEtappeContext();
-  const [startnummer, setStartnummer] = useState('');
-  const [selected, setSelected] = useState<Deltager | null>(null);
-  const [etappe, setEtappe] = useState(1);
-  const [inputTid, setInputTid] = useState('');
+  const [startnummer, setStartnummer] = usePersistentState<string>('finishtime.startnummer', '');
+  const [selected, setSelected] = usePersistentState<Deltager | null>('finishtime.selected', null);
+  const [etappe, setEtappe] = usePersistentState<number>('finishtime.etappe', 1);
+  const [inputTid, setInputTid] = usePersistentState<string>('finishtime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
 
   // Snackbar state
@@ -212,21 +213,6 @@ const FinishTimeRegister: React.FC = () => {
                   )}
                 />
               </Stack>
-            </Box>
-
-            <Box sx={{ width: { xs: '48%', sm: '16%' }, mt: { xs: 1, sm: 0 } }}>
-              <TextField
-                select
-                label="Etappe"
-                value={etappe}
-                onChange={e => setEtappe(Number(e.target.value))}
-                fullWidth
-                size="small"
-              >
-                {etapper.map((e) => (
-                  <MenuItem key={e.nummer} value={e.nummer}>{e.navn}</MenuItem>
-                ))}
-              </TextField>
             </Box>
 
             <Box sx={{ width: { xs: '100%', sm: '25%' }, mt: { xs: 1, sm: 0 } }}>

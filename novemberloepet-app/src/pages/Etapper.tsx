@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useEtappeContext } from '../context/EtappeContext';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, IconButton, Button, FormControlLabel, Switch, Stack } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {
   const { etapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
-  const [localIdeal, setLocalIdeal] = useState<Record<number, string>>({});
-  const [autoFormat, setAutoFormat] = useState(false);
+  const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
+  const [autoFormat, setAutoFormat] = usePersistentState<boolean>('etapper.autoFormat', false);
   const [saved, setSaved] = useState<Record<number, boolean>>({});
 
   // When etapper change externally, sync local buffer for those not being edited

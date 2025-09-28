@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, MenuItem, Typography, Alert } from '@mui/material';
 import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 const classes = [
   'Oldtimer',
@@ -37,12 +38,29 @@ const initialState: Deltager = {
 };
 
 const Registration: React.FC = () => {
-  const [form, setForm] = useState(initialState);
+  const [form, setForm] = usePersistentState<Deltager>('registration.form', initialState);
   const [submitted, setSubmitted] = useState(false);
   const { addDeltager } = useDeltagerContext();
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ email?: string; telefon?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; telefon?: string; startnummer?: string }>({});
+
+  const { deltagere } = useDeltagerContext();
+
+  // When participants change, default startnummer to max+1 if the form doesn't already have one
+  useEffect(() => {
+    try {
+      if (!form.startnummer) {
+        const nums = deltagere.map(d => parseInt(String(d.startnummer) || '0', 10)).filter(n => !isNaN(n));
+        const max = nums.length ? Math.max(...nums) : 0;
+        const next = String(max + 1);
+        setForm(prev => ({ ...prev, startnummer: next }));
+      }
+    } catch (e) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deltagere.length]);
 
   const validateEmail = (email?: string) => {
     if (!email) return '';
@@ -63,6 +81,10 @@ const Registration: React.FC = () => {
     setForm({ ...form, [name]: value });
     if (name === 'email') setErrors(prev => ({ ...prev, email: validateEmail(value) }));
     if (name === 'telefon') setErrors(prev => ({ ...prev, telefon: validateTelefon(value) }));
+    if (name === 'startnummer') {
+      const collision = deltagere.some(d => String(d.startnummer) === String(value));
+      setErrors(prev => ({ ...prev, startnummer: collision ? 'Startnummeret er allerede registrert' : undefined }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,8 +92,11 @@ const Registration: React.FC = () => {
     // Validate
     const emailErr = validateEmail(form.email);
     const telErr = validateTelefon(form.telefon);
-    setErrors({ email: emailErr ? emailErr : undefined, telefon: telErr ? telErr : undefined });
-    if (emailErr || telErr) return;
+    // recompute startnummer collision check as final guard
+    const startCollision = deltagere.some(d => String(d.startnummer) === String(form.startnummer));
+    const startErr = startCollision ? 'Startnummeret er allerede registrert' : undefined;
+    setErrors({ email: emailErr ? emailErr : undefined, telefon: telErr ? telErr : undefined, startnummer: startErr });
+    if (emailErr || telErr || startErr) return;
     setSaving(true);
     setServerError(null);
 
@@ -111,6 +136,7 @@ const Registration: React.FC = () => {
       addDeltager(form);
     } finally {
       setSaving(false);
+      // keep form persisted but clear after successful attempt
       setForm(initialState);
       setSubmitted(true);
       setTimeout(() => setSubmitted(false), 2000);
@@ -121,7 +147,7 @@ const Registration: React.FC = () => {
     <Box maxWidth={500} mx="auto">
       <Typography variant="h5" gutterBottom>Registrer deltager</Typography>
       <form onSubmit={handleSubmit}>
-        <TextField label="Startnummer" name="startnummer" value={form.startnummer} onChange={handleChange} fullWidth margin="normal" required disabled={saving} />
+        <TextField label="Startnummer" name="startnummer" value={form.startnummer} onChange={handleChange} fullWidth margin="normal" required disabled={saving} error={!!errors.startnummer} helperText={errors.startnummer} />
         <TextField label="Navn" name="navn" value={form.navn} onChange={handleChange} fullWidth margin="normal" required disabled={saving} />
         <TextField label="Adresse" name="adresse" value={form.adresse} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
         <TextField label="Postnr" name="postnr" value={form.postnr} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
@@ -142,7 +168,7 @@ const Registration: React.FC = () => {
         </TextField>
         <TextField label="Starttid" name="starttid" value={form.starttid} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
         <Box mt={2}>
-          <Button type="submit" variant="contained" color="primary" disabled={saving || !!errors.email || !!errors.telefon}>
+          <Button type="submit" variant="contained" color="primary" disabled={saving || !!errors.email || !!errors.telefon || !!errors.startnummer}>
             {saving ? 'Lagrer...' : 'Registrer'}
           </Button>
         </Box>

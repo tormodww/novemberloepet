@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDeltagerContext } from '../context/DeltagerContext';
+import { usePersistentState } from '../hooks/usePersistentState';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Checkbox, Button, Stack, Chip, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, MenuItem, IconButton, CircularProgress, Alert } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 
@@ -47,17 +48,17 @@ function buildStartbekreftelseHTML(deltagere: any[]) {
 
 const Startliste: React.FC = () => {
   const { deltagere, setMultipleDeltagerStatus, updateDeltager } = useDeltagerContext();
-  const [sortField, setSortField] = useState<SortField>('startnummer');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [query, setQuery] = useState('');
-  const [klasseFilter, setKlasseFilter] = useState<string>('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'DNS' | 'DNF' | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editData, setEditData] = useState<Partial<any> | null>(null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editMessage, setEditMessage] = useState<string | null>(null);
+  const [sortField, setSortField] = usePersistentState<SortField>('startliste.sortField', 'startnummer');
+  const [sortOrder, setSortOrder] = usePersistentState<SortOrder>('startliste.sortOrder', 'asc');
+  const [selected, setSelected] = usePersistentState<string[]>('startliste.selected', []);
+  const [query, setQuery] = usePersistentState<string>('startliste.query', '');
+  const [klasseFilter, setKlasseFilter] = usePersistentState<string>('startliste.klasseFilter', '');
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [confirmAction, setConfirmAction] = React.useState<'DNS' | 'DNF' | null>(null);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editData, setEditData] = React.useState<Partial<any> | null>(null);
+  const [editSaving, setEditSaving] = React.useState(false);
+  const [editMessage, setEditMessage] = React.useState<string | null>(null);
 
   // derive available classes for filter
   const uniqueKlasser = Array.from(new Set(deltagere.map(d => d.klasse))).filter(Boolean);
