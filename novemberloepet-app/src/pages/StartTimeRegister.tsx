@@ -1,7 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, TextField, Button, Paper, Autocomplete, Stack } from '@mui/material';
+import {
+  Box, Typography, TextField, Button, Paper, Stack, IconButton,
+  Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, DialogActions, Snackbar, Alert, Chip
+} from '@mui/material';
+import MenuItem from '@mui/material/MenuItem';
+import ListIcon from '@mui/icons-material/List';
 import { IMaskInput } from 'react-imask';
 import { usePersistentState } from '../hooks/usePersistentState';
 
@@ -37,6 +42,10 @@ const StartTimeRegister: React.FC = () => {
   const [inputTid, setInputTid] = usePersistentState<string>('starttime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
 
+  const [snackOpen, setSnackOpen] = useState(false);
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackSeverity, setSnackSeverity] = useState<'success' | 'info' | 'warning' | 'error'>('info');
+
   const searchRef = useRef<HTMLInputElement | null>(null);
   const timeRef = useRef<HTMLInputElement | null>(null);
 
@@ -44,21 +53,24 @@ const StartTimeRegister: React.FC = () => {
     setTimeout(() => searchRef.current?.focus(), 200);
   }, []);
 
-  // prepare options for autocomplete
-  const options = deltagere.map(d => ({ label: `#${d.startnummer} — ${d.navn}`, value: d.startnummer, data: d }));
-
   useEffect(() => {
     if (selected) setStartnummer(selected.startnummer);
   }, [selected]);
 
   const deltager = deltagere.find(d => d.startnummer === startnummer) || selected;
 
+  const registerTime = (person: Deltager, rawInput: string) => {
+    if (!person) return;
+    const tid = formatStartTimeInput(rawInput);
+    editDeltager(person.navn, { starttid: tid });
+    setBekreft(`#${person.startnummer} ${person.navn}: ${tid}`);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (deltager && inputTid) {
-      const tid = formatStartTimeInput(inputTid);
-      editDeltager(deltager.navn, { starttid: tid });
-      setBekreft(`#${deltager.startnummer} ${deltager.navn}: ${tid}`);
+    const person = deltager;
+    if (person && inputTid) {
+      registerTime(person, inputTid);
       setInputTid('');
       setStartnummer('');
       setSelected(null);
@@ -73,9 +85,33 @@ const StartTimeRegister: React.FC = () => {
   };
 
   const quickSetEtappe = (nummer: number) => {
-    // We'll mirror FinishTimeRegister behavior by focusing the time input after setting etappe
-    // For StartTimeRegister we don't store etappe in state currently, so we focus time field directly
+    // For start register we don't track etappe, but focus time after quick button
     setTimeout(() => timeRef.current?.focus(), 50);
+  };
+
+  const [openDialog, setOpenDialog] = useState(false);
+
+  const openMissingDialog = () => {
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
+    setOpenDialog(true);
+  };
+
+  const closeMissingDialog = () => {
+    setOpenDialog(false);
+  };
+
+  const onSelectFromDialog = (d: Deltager) => {
+    setSelected(d);
+    setStartnummer(d.startnummer);
+    closeMissingDialog();
+    setTimeout(() => timeRef.current?.focus(), 50);
+  };
+
+  const participantsMissingStart = () => {
+    return deltagere
+      .filter(d => !d.starttid || d.starttid === '')
+      .slice()
+      .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
   };
 
   return (
@@ -94,33 +130,37 @@ const StartTimeRegister: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {/* Make startnummer field wider so whole number is visible */}
-            <Box sx={{ width: { xs: '100%', sm: '65%' } }}>
-              <Autocomplete
-                freeSolo
-                options={options}
-                getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt.label)}
-                onChange={(event, value) => {
-                  if (!value) { setSelected(null); setStartnummer(''); return; }
-                  if (typeof value === 'string') handleFreeInput(value);
-                  else { setSelected(value.data); setStartnummer(value.value); }
-                }}
-                onInputChange={(event, value, reason) => { if (reason === 'input') handleFreeInput(value); }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    inputRef={searchRef}
-                    label="Startnummer eller navn"
-                    placeholder="Søk eller skriv startnummer"
-                    fullWidth
-                    size="small"
-                  />
-                )}
-              />
+            <Box sx={{ flex: 1, minWidth: 220 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten starttid"><ListIcon /></IconButton>
+                <TextField
+                  select
+                  label="Startnummer eller navn"
+                  inputRef={searchRef}
+                  value={startnummer}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const sel = deltagere.find(d => d.startnummer === val) || null;
+                    setStartnummer(val);
+                    setSelected(sel);
+                    setTimeout(() => timeRef.current?.focus(), 50);
+                  }}
+                  fullWidth
+                  size="small"
+                >
+                  {participantsMissingStart().length > 0 ? (
+                    participantsMissingStart().map(d => (
+                      <MenuItem key={d.startnummer} value={d.startnummer}>#{d.startnummer} — {d.navn}</MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>Ingen deltagere uten starttid</MenuItem>
+                  )}
+                </TextField>
+              </Stack>
             </Box>
 
-            {/* Fixed width time input that shows hh:mm using react-imask */}
-            <Box sx={{ width: { xs: '100%', sm: '140px' }, mt: { xs: 1, sm: 0 } }}>
+            {/* Starttid felt med react-imask */}
+            <Box sx={{ width: { xs: '100%', sm: '140px' }, flexShrink: 0, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
                 label="Starttid (hh:mm)"
@@ -146,14 +186,29 @@ const StartTimeRegister: React.FC = () => {
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2">#{deltager.startnummer} {deltager.navn}</Typography>
             <Typography variant="body2">Nåværende starttid: {deltager.starttid || 'Ikke satt'}</Typography>
-            {etapper[0]?.idealtid && (
-              <Typography variant="body2" color="text.secondary">Idealtid første etappe: <b>{etapper[0].idealtid}</b></Typography>
-            )}
           </Box>
         )}
 
         {bekreft && <Typography color="success.main" sx={{ mt: 1 }}>{bekreft} lagret!</Typography>}
       </Paper>
+
+      <Dialog open={openDialog} onClose={closeMissingDialog} fullWidth>
+        <DialogTitle>Deltagere uten starttid</DialogTitle>
+        <DialogContent dividers>
+          <List>
+            {participantsMissingStart().map(d => (
+              <ListItemButton key={d.startnummer} onClick={() => onSelectFromDialog(d)}>
+                <ListItemText primary={`#${d.startnummer} ${d.navn}`} secondary={`${d.klasse} • ${d.sykkel}`} />
+                {d.resultater?.[0]?.status === 'DNS' && <Chip label="Startet ikke" color="error" size="small" sx={{ ml: 1 }} />}
+                {d.resultater?.[0]?.status === 'DNF' && <Chip label="Fullførte ikke" color="warning" size="small" sx={{ ml: 1 }} />}
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeMissingDialog}>Lukk</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

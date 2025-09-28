@@ -6,6 +6,7 @@ import Registration from './pages/Registration';
 import Confirmation from './pages/Confirmation';
 import Results from './pages/Results';
 import FinishTimeRegister from './pages/FinishTimeRegister';
+import StartTimeRegister from './pages/StartTimeRegister';
 import Etapper from './pages/Etapper';
 import Startliste from './pages/Startliste';
 import { DeltagerProvider } from './context/DeltagerContext';
@@ -27,6 +28,9 @@ function App() {
       break;
     case 'finishtime':
       content = <FinishTimeRegister />;
+      break;
+    case 'starttime':
+      content = <StartTimeRegister />;
       break;
     case 'etapper':
       content = <Etapper />;

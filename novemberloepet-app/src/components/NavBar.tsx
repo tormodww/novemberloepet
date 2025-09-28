@@ -22,6 +22,7 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
           <Button color="inherit" onClick={() => onNavigate('etapper')} disabled={currentPage==='etapper'}>Etapper</Button>
           <Button color="inherit" onClick={() => onNavigate('registration')} disabled={currentPage==='registration'}>Registrering</Button>
           <Button color="inherit" onClick={() => onNavigate('startliste')} disabled={currentPage==='startliste'}>Startliste</Button>
+          <Button color="inherit" onClick={() => onNavigate('starttime')} disabled={currentPage==='starttime'}>Starttidsregistrering</Button>
           <Button color="inherit" onClick={() => onNavigate('finishtime')} disabled={currentPage==='finishtime'}>Sluttidsregistrering</Button>
           <Button color="inherit" onClick={() => onNavigate('results')} disabled={currentPage==='results'}>Resultater</Button>
           <Button color="inherit" onClick={() => onNavigate('confirmation')} disabled={currentPage==='confirmation'}>Startbekreftelse</Button>
