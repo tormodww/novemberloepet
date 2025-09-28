@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 export type EtappeResultat = {
   etappe: number;
@@ -7,6 +7,8 @@ export type EtappeResultat = {
   idealtid: string;
   diff: string;
 };
+
+export type DeltagerStatus = 'OK' | 'DNS' | 'DNF' | 'NONE';
 
 export type Deltager = {
   startnummer: string;
@@ -18,6 +20,7 @@ export type Deltager = {
   klasse: string;
   starttid: string;
   resultater?: EtappeResultat[];
+  status?: DeltagerStatus;
 };
 
 type DeltagerContextType = {
@@ -26,6 +29,8 @@ type DeltagerContextType = {
   updateResultater: (navn: string, resultater: EtappeResultat[]) => void;
   editDeltager: (navn: string, data: Partial<Deltager>) => void;
   deleteDeltager: (navn: string) => void;
+  setDeltagerStatus: (startnummer: string, status: DeltagerStatus) => void;
+  setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
 };
 
 const DeltagerContext = createContext<DeltagerContextType | undefined>(undefined);
@@ -36,27 +41,153 @@ export const useDeltagerContext = () => {
   return ctx;
 };
 
-const initialTestDeltagere: Deltager[] = [
-  { startnummer: '1', navn: 'Anders Ramsøe', nasjon: 'Norge', poststed: '1560 Larkollen', sykkel: 'Cz 360', modell: '1969', klasse: 'Oldtimer', starttid: '10:30', resultater: [] },
-  { startnummer: '2', navn: 'Geir Jacobsen', nasjon: 'Norge', poststed: '3243 Kodal', sykkel: 'Bsa B50 Victor', modell: '1971', klasse: 'Oldtimer', starttid: '10:31', resultater: [] },
-  { startnummer: '3', navn: 'Jan Roar Olafsen', nasjon: 'Norge', poststed: '3244 Sandefjord', sykkel: 'Honda XL250', modell: '1973', klasse: 'Oldtimer', starttid: '10:32', resultater: [] },
-  { startnummer: '4', navn: 'Thor Bjørn Andenæs', nasjon: 'Norge', poststed: '1356', sykkel: 'Husqvarna', modell: '1974', klasse: 'Oldtimer', starttid: '10:33', resultater: [] },
-  { startnummer: '5', navn: 'Dan Lindkjølen', nasjon: 'Norge', poststed: '3612 Kongsberg', sykkel: 'Yamaha DT 250', modell: '1974', klasse: 'Oldtimer', starttid: '10:35', resultater: [] },
-  { startnummer: '6', navn: 'Simen Ramsøe', nasjon: 'Norge', poststed: '0559', sykkel: 'NV 38 250', modell: '1955', klasse: 'Pre 75', starttid: '10:36', resultater: [] },
-  { startnummer: '7', navn: 'Dag H Engelsrud', nasjon: 'Norge', poststed: '1185 Oslo', sykkel: 'Yamaha DT 360', modell: '1974', klasse: 'Pre 75', starttid: '10:37', resultater: [] },
-  { startnummer: '8', navn: 'Eirik Nesse', nasjon: 'Norge', poststed: '8310 Kabelvåg', sykkel: 'Honda ST70', modell: '1974', klasse: 'Pre 75', starttid: '10:38', resultater: [] },
-  { startnummer: '9', navn: 'Jon Einar Bergersen', nasjon: 'Norge', poststed: '', sykkel: 'Husqvarna 250', modell: '1980', klasse: 'Pre 85', starttid: '10:39', resultater: [] },
-  { startnummer: '10', navn: 'Mikkel Andenæs', nasjon: 'Norge', poststed: '1397 Nesøya', sykkel: 'Husqvarna 250', modell: '1978', klasse: 'Pre 85', starttid: '10:40', resultater: [] },
-];
+const STORAGE_KEY = 'novemberloepet.deltagere.v1';
+
+const generatedTestDeltagere = (() => {
+  const bikes = [
+    'Cz 360', 'Bsa B50 Victor', 'Honda XL250', 'Husqvarna', 'Yamaha DT 250', 'NV 38 250',
+    'Yamaha DT 360', 'Honda ST70', 'Husqvarna 250', 'Suzuki RM', 'Kawasaki KE',
+    'Triumph TR', 'Norton Commando', 'Royal Enfield', 'BMW R75', 'Harley WL', 'Montesa', 'Beta', 'Aprilia'
+  ];
+  const classes = ['Oldtimer', 'Pre 75', 'Pre 85', 'Classic'];
+  const arr: Deltager[] = [];
+  const baseMinutes = 10 * 60 + 30; // 10:30
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  for (let i = 0; i < 44; i++) {
+    const num = i + 1;
+    const minutes = baseMinutes + i; // one minute apart
+    const hh = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    arr.push({
+      startnummer: String(num),
+      navn: `Deltaker ${num}`,
+      nasjon: '',
+      poststed: '',
+      sykkel: bikes[i % bikes.length],
+      modell: String(1950 + (i % 50)),
+      klasse: classes[i % classes.length],
+      starttid: `${pad(hh)}:${pad(mm)}`,
+      resultater: [],
+      status: 'NONE'
+    });
+  }
+  return arr;
+})();
 
 export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
-  const [deltagere, setDeltagere] = useState<Deltager[]>(initialTestDeltagere);
+  const [deltagere, setDeltagere] = useState<Deltager[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Deltager[];
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      // ignore parse errors and fallback to generated
+    }
+    return generatedTestDeltagere;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(deltagere));
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [deltagere]);
+
   const addDeltager = (d: Deltager) => setDeltagere((prev) => [...prev, d]);
   const updateResultater = (navn: string, resultater: EtappeResultat[]) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, resultater } : d));
   const editDeltager = (navn: string, data: Partial<Deltager>) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, ...data } : d));
   const deleteDeltager = (navn: string) => setDeltagere((prev) => prev.filter(d => d.navn !== navn));
+
+  const setDeltagerStatus = (startnummer: string, status: DeltagerStatus) => {
+    setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, status } : d));
+    // Try to persist to backend (best-effort)
+    (async () => {
+      try {
+        // fetch remote list to map startnummer -> objectId
+        const res = await fetch('/api/deltagere');
+        if (!res.ok) throw new Error(`Failed to fetch remote deltagere: ${res.status}`);
+        const list = await res.json();
+        if (!Array.isArray(list)) throw new Error('Remote deltagere response not an array');
+        const match = list.find((r: any) => String(r.startnummer) === String(startnummer));
+        if (match && (match.objectId || match.objectId)) {
+          const id = match.objectId || match.objectId;
+          await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        } else {
+          // create new remote object
+          const local = deltagere.find(d => d.startnummer === startnummer);
+          if (local) {
+            const payload = { ...local, status };
+            const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (createRes.ok) {
+              const created = await createRes.json();
+              const objectId = created.objectId || created.id;
+              if (objectId) {
+                // update local parseId if needed
+                setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, /* parseId: objectId */ } : d));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to persist participant status to proxy', e);
+      }
+    })();
+  };
+
+  const setMultipleDeltagerStatus = (startnummerList: string[], status: DeltagerStatus) => {
+    setDeltagere(prev => prev.map(d => startnummerList.includes(d.startnummer) ? { ...d, status } : d));
+    // persist to backend for each
+    (async () => {
+      try {
+        const res = await fetch('/api/deltagere');
+        if (!res.ok) throw new Error(`Failed to fetch remote deltagere: ${res.status}`);
+        const list = await res.json();
+        if (!Array.isArray(list)) throw new Error('Remote deltagere response not an array');
+        // Map by startnummer
+        const map = new Map<string, any>();
+        list.forEach((r: any) => { if (r && r.startnummer) map.set(String(r.startnummer), r); });
+
+        for (const sn of startnummerList) {
+          const match = map.get(String(sn));
+          if (match && (match.objectId || match.objectId)) {
+            const id = match.objectId || match.objectId;
+            try {
+              await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+            } catch (e) {
+              console.warn(`Failed to update remote participant ${sn}`, e);
+            }
+          } else {
+            // create
+            const local = deltagere.find(d => d.startnummer === sn);
+            if (local) {
+              const payload = { ...local, status };
+              try {
+                const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (createRes.ok) {
+                  const created = await createRes.json();
+                  const objectId = created.objectId || created.id;
+                  if (objectId) {
+                    // optionally update local with parseId
+                    setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d/*, parseId: objectId */ } : d));
+                  }
+                }
+              } catch (e) {
+                console.warn(`Failed to create remote participant for ${sn}`, e);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to persist multiple participant statuses to proxy', e);
+      }
+    })();
+  };
+
   return (
-    <DeltagerContext.Provider value={{ deltagere, addDeltager, updateResultater, editDeltager, deleteDeltager }}>
+    <DeltagerContext.Provider value={{ deltagere, addDeltager, updateResultater, editDeltager, deleteDeltager, setDeltagerStatus, setMultipleDeltagerStatus }}>
       {children}
     </DeltagerContext.Provider>
   );

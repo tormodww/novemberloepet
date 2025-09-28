@@ -3,7 +3,7 @@ import { useEtappeContext } from '../context/EtappeContext';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, IconButton, Button, FormControlLabel, Switch, Stack } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 
-const AdminEtapper: React.FC = () => {
+const Etapper: React.FC = () => {
   const { etapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
   const [localIdeal, setLocalIdeal] = useState<Record<number, string>>({});
@@ -113,7 +113,7 @@ const AdminEtapper: React.FC = () => {
   return (
     <Box maxWidth={900} mx="auto">
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-        <Typography variant="h6">Administrer etapper</Typography>
+        <Typography variant="h6">Etapper</Typography>
         <FormControlLabel control={<Switch checked={autoFormat} onChange={(e) => setAutoFormat(e.target.checked)} />} label="Auto-format" />
         <Button variant="outlined" color="secondary" onClick={handleReset}>Tilbakestill til defaults</Button>
       </Stack>
@@ -178,4 +178,4 @@ const AdminEtapper: React.FC = () => {
   );
 };
 
-export default AdminEtapper;
+export default Etapper;

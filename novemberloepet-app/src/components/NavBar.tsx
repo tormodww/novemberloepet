@@ -19,14 +19,12 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
             Novemberløpet 2025
           </Typography>
           <Button color="inherit" onClick={() => onNavigate('home')} disabled={currentPage==='home'}>Hjem</Button>
-          <Button color="inherit" onClick={() => onNavigate('registration')} disabled={currentPage==='registration'}>Registrering</Button>
-          <Button color="inherit" onClick={() => onNavigate('confirmation')} disabled={currentPage==='confirmation'}>Startbekreftelse</Button>
-          <Button color="inherit" onClick={() => onNavigate('results')} disabled={currentPage==='results'}>Resultater</Button>
-          <Button color="inherit" onClick={() => onNavigate('finishtime')} disabled={currentPage==='finishtime'}>Sluttidsregistrering</Button>
-          <Button color="inherit" onClick={() => onNavigate('participants')} disabled={currentPage==='participants'}>Deltagere</Button>
+          <Button color="inherit" onClick={() => onNavigate('etapper')} disabled={currentPage==='etapper'}>Etapper</Button>
           <Button color="inherit" onClick={() => onNavigate('startliste')} disabled={currentPage==='startliste'}>Startliste</Button>
-          <Button color="inherit" onClick={() => onNavigate('alledeltagere')} disabled={currentPage==='alledeltagere'}>Alle deltagere</Button>
-          <Button color="inherit" onClick={() => onNavigate('adminetapper')} disabled={currentPage==='adminetapper'}>Admin Etapper</Button>
+          <Button color="inherit" onClick={() => onNavigate('finishtime')} disabled={currentPage==='finishtime'}>Sluttidsregistrering</Button>
+          <Button color="inherit" onClick={() => onNavigate('results')} disabled={currentPage==='results'}>Resultater</Button>
+          <Button color="inherit" onClick={() => onNavigate('confirmation')} disabled={currentPage==='confirmation'}>Startbekreftelse</Button>
+          <Button color="inherit" onClick={() => onNavigate('registration')} disabled={currentPage==='registration'}>Registrering</Button>
         </Toolbar>
       </AppBar>
     </Box>
