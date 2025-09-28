@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useDeltagerContext } from '../context/DeltagerContext';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Checkbox, Button, Stack, Chip, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, MenuItem } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Checkbox, Button, Stack, Chip, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, MenuItem, IconButton, CircularProgress, Alert } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 
 // Felter som kan sorteres på
 const sortableFields = [
@@ -45,7 +46,7 @@ function buildStartbekreftelseHTML(deltagere: any[]) {
 }
 
 const Startliste: React.FC = () => {
-  const { deltagere, setMultipleDeltagerStatus } = useDeltagerContext();
+  const { deltagere, setMultipleDeltagerStatus, updateDeltager } = useDeltagerContext();
   const [sortField, setSortField] = useState<SortField>('startnummer');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selected, setSelected] = useState<string[]>([]);
@@ -53,6 +54,10 @@ const Startliste: React.FC = () => {
   const [klasseFilter, setKlasseFilter] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'DNS' | 'DNF' | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<any> | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMessage, setEditMessage] = useState<string | null>(null);
 
   // derive available classes for filter
   const uniqueKlasser = Array.from(new Set(deltagere.map(d => d.klasse))).filter(Boolean);
@@ -77,10 +82,10 @@ const Startliste: React.FC = () => {
     let bVal = b[sortField];
     // Numerisk sortering for startnummer
     if (sortField === 'startnummer') {
-      aVal = parseInt(aVal as string, 10);
-      bVal = parseInt(bVal as string, 10);
-      if (isNaN(aVal as number) || isNaN(bVal as number)) return 0;
-      return sortOrder === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+      const aNum = parseInt(String(aVal || ''), 10);
+      const bNum = parseInt(String(bVal || ''), 10);
+      if (isNaN(aNum) || isNaN(bNum)) return 0;
+      return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
     }
     // Ellers tekstsortering
     if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -139,6 +144,60 @@ const Startliste: React.FC = () => {
     setConfirmAction(null);
   };
 
+  const openEdit = (d: any) => {
+    setEditData({ ...d });
+    setEditMessage(null);
+    setEditOpen(true);
+  };
+  const closeEdit = () => {
+    setEditOpen(false);
+    setEditData(null);
+    setEditSaving(false);
+    setEditMessage(null);
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editData) return;
+    const { name, value } = e.target;
+    setEditData({ ...editData, [name]: value });
+  };
+
+  const handleEditSave = async () => {
+    if (!editData) return;
+    const startnummer = editData.startnummer;
+    setEditSaving(true);
+    setEditMessage(null);
+    try {
+      const dataToUpdate: Partial<any> = {
+        navn: editData.navn,
+        adresse: editData.adresse,
+        postnr: editData.postnr,
+        nasjon: editData.nasjon,
+        poststed: editData.poststed,
+        telefon: editData.telefon,
+        email: editData.email,
+        sykkel: editData.sykkel,
+        modell: editData.modell,
+        teknisk: editData.teknisk,
+        preKlasse: editData.preKlasse,
+        klasse: editData.klasse,
+        starttid: editData.starttid,
+      };
+      const ok = await updateDeltager(String(startnummer), dataToUpdate);
+      if (ok) {
+        setEditMessage('Oppdatert på server');
+      } else {
+        setEditMessage('Endringen er lagret lokalt og ligger i kø for å synkes til server (retry).');
+      }
+    } catch (e: any) {
+      setEditMessage(`Feil ved oppdatering: ${e?.message || e}`);
+    } finally {
+      setEditSaving(false);
+      // keep dialog open so user can see message, close automatically after short delay
+      setTimeout(() => closeEdit(), 1400);
+    }
+  };
+
   const renderStatusChip = (status?: string) => {
     if (!status || status === 'NONE') return <Chip label="-" size="small" />;
     if (status === 'OK') return <Chip label="OK" color="success" size="small" />;
@@ -185,6 +244,7 @@ const Startliste: React.FC = () => {
                 </TableCell>
               ))}
               <TableCell>Status</TableCell>
+              <TableCell>Handling</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -197,11 +257,52 @@ const Startliste: React.FC = () => {
                 <TableCell>{d.sykkel}</TableCell>
                 <TableCell>{d.starttid}</TableCell>
                 <TableCell>{renderStatusChip(d.status)}</TableCell>
+                <TableCell>
+                  <IconButton size="small" onClick={() => openEdit(d)} title="Rediger deltager">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onClose={closeEdit} fullWidth maxWidth="sm">
+        <DialogTitle>Rediger deltager</DialogTitle>
+        <DialogContent>
+          {editMessage && <Alert severity={editMessage.startsWith('Feil') ? 'error' : 'info'} sx={{ mb: 2 }}>{editMessage}</Alert>}
+          <TextField label="Navn" name="navn" value={(editData as any)?.navn || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Adresse" name="adresse" value={(editData as any)?.adresse || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Postnr" name="postnr" value={(editData as any)?.postnr || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField select label="Nasjon" name="nasjon" value={(editData as any)?.nasjon || ''} onChange={handleEditChange} fullWidth margin="normal">
+            <MenuItem value="Norge">Norge</MenuItem>
+            <MenuItem value="Sverige">Sverige</MenuItem>
+            <MenuItem value="Finland">Finland</MenuItem>
+            <MenuItem value="Danmark">Danmark</MenuItem>
+          </TextField>
+          <TextField label="Poststed" name="poststed" value={(editData as any)?.poststed || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Telefon" name="telefon" value={(editData as any)?.telefon || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="E-mail" name="email" value={(editData as any)?.email || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Sykkel" name="sykkel" value={(editData as any)?.sykkel || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Modell (år)" name="modell" value={(editData as any)?.modell || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Teknisk" name="teknisk" value={(editData as any)?.teknisk || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField label="Pre/Klasse" name="preKlasse" value={(editData as any)?.preKlasse || ''} onChange={handleEditChange} fullWidth margin="normal" />
+          <TextField select label="Klasse" name="klasse" value={(editData as any)?.klasse || ''} onChange={handleEditChange} fullWidth margin="normal">
+            {['Oldtimer','Pre 75','Pre 85','Classic','Pre 90','Offroad 2000','Super-EVO'].map((c) => (
+              <MenuItem key={c} value={c}>{c}</MenuItem>
+            ))}
+          </TextField>
+          <TextField label="Starttid" name="starttid" value={(editData as any)?.starttid || ''} onChange={handleEditChange} fullWidth margin="normal" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeEdit} disabled={editSaving}>Avbryt</Button>
+          <Button onClick={handleEditSave} variant="contained" disabled={editSaving} startIcon={editSaving ? <CircularProgress size={16} /> : null}>
+            {editSaving ? 'Lagrer...' : 'Lagre endringer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmOpen} onClose={handleCancelConfirm}>
         <DialogTitle>Bekreft endring</DialogTitle>

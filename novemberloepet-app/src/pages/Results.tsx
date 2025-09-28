@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useDeltagerContext } from '../context/DeltagerContext';
+import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, TextField, DialogActions, Button } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';

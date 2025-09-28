@@ -1,4 +1,4 @@
-import Parse from 'parse/dist/parse.min.js';
+import Parse from 'parse';
 
 // Prefer Vite env variables (VITE_), fall back to REACT_APP_ for compatibility
 const appId = (import.meta as any).env?.VITE_PARSE_APP_ID || process.env.REACT_APP_PARSE_APP_ID || (import.meta as any).env?.REACT_APP_PARSE_APP_ID;

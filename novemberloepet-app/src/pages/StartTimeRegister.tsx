@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, TextField, Button, Paper, Autocomplete, Grid, Stack } from '@mui/material';
+import { Box, Typography, TextField, Button, Paper, Autocomplete, Stack } from '@mui/material';
 
 function formatStartTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
@@ -76,8 +76,8 @@ const StartTimeRegister: React.FC = () => {
         </Stack>
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={1} alignItems="center">
-            <Grid item xs={12} sm={6}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
               <Autocomplete
                 freeSolo
                 options={options}
@@ -99,9 +99,9 @@ const StartTimeRegister: React.FC = () => {
                   />
                 )}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} sm={6}>
+            <Box sx={{ width: { xs: '100%', sm: '50%' }, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
                 label="Starttid (hhmm)"
@@ -111,12 +111,12 @@ const StartTimeRegister: React.FC = () => {
                 size="small"
                 inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*' }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ width: '100%', mt: 1 }}>
               <Button type="submit" variant="contained" color="primary" fullWidth>Registrer starttid</Button>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </form>
 
         {deltager && (

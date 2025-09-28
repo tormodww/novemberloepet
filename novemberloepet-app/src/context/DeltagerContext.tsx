@@ -6,6 +6,7 @@ export type EtappeResultat = {
   maltid: string;
   idealtid: string;
   diff: string;
+  status?: DeltagerStatus;
 };
 
 export type DeltagerStatus = 'OK' | 'DNS' | 'DNF' | 'NONE';
@@ -35,10 +36,12 @@ type DeltagerContextType = {
   deltagere: Deltager[];
   addDeltager: (d: Deltager) => void;
   updateResultater: (navn: string, resultater: EtappeResultat[]) => void;
+  setEtappeStatus: (startnummer: string, etappe: number, status: DeltagerStatus) => void;
   editDeltager: (navn: string, data: Partial<Deltager>) => void;
   deleteDeltager: (navn: string) => void;
   setDeltagerStatus: (startnummer: string, status: DeltagerStatus) => void;
   setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
+  updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
 };
 
 const DeltagerContext = createContext<DeltagerContextType | undefined>(undefined);
@@ -50,6 +53,18 @@ export const useDeltagerContext = () => {
 };
 
 const STORAGE_KEY = 'novemberloepet.deltagere.v1';
+const OPS_KEY = 'novemberloepet.pendingops.v1';
+
+type PendingOpType = 'update' | 'create' | 'delete';
+type PendingOp = {
+  id: string;
+  type: PendingOpType;
+  startnummer?: string;
+  payload?: any;
+  parseId?: string | null;
+  attempts: number;
+  lastError?: string | null;
+};
 
 const generatedTestDeltagere = (() => {
   const bikes = [
@@ -111,8 +126,143 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [deltagere]);
 
+  // pending ops queue (for offline / retry)
+  const [pendingOps, setPendingOps] = useState<PendingOp[]>(() => {
+    try {
+      const raw = localStorage.getItem(OPS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as PendingOp[];
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return [];
+  });
+
+  const persistOps = (ops: PendingOp[]) => {
+    try {
+      localStorage.setItem(OPS_KEY, JSON.stringify(ops));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  function enqueueOp(op: PendingOp) {
+    setPendingOps(prev => {
+      const next = [...prev, op];
+      persistOps(next);
+      return next;
+    });
+  }
+
+  const removeOp = (id: string) => {
+    setPendingOps(prev => {
+      const next = prev.filter(p => p.id !== id);
+      persistOps(next);
+      return next;
+    });
+  };
+
+  // Attempt to process the queue (best-effort). Runs sequentially.
+  const processQueue = async () => {
+    if (pendingOps.length === 0) return;
+    // iterate over a snapshot
+    const ops = [...pendingOps];
+    for (const op of ops) {
+      try {
+        if (op.type === 'update') {
+          // try to determine parseId or remote id
+          const sn = op.startnummer;
+          const local = sn ? deltagere.find(d => d.startnummer === sn) : undefined;
+          const payload = { ...(local || {}), ...(op.payload || {}) };
+          // if we have parseId, try direct PUT
+          if (op.parseId) {
+            const res = await fetch(`/api/deltagere/${op.parseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) {
+              removeOp(op.id);
+              continue;
+            }
+          }
+
+          // otherwise try to find remote by startnummer
+          if (sn) {
+            const listRes = await fetch('/api/deltagere');
+            if (listRes.ok) {
+              const list = await listRes.json();
+              const match = Array.isArray(list) && list.find((r: any) => String(r.startnummer) === String(sn));
+              if (match && (match.objectId || match.id)) {
+                const mid = match.objectId || match.id;
+                const res2 = await fetch(`/api/deltagere/${mid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (res2.ok) {
+                  // store parseId locally
+                  setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: mid } : d));
+                  removeOp(op.id);
+                  continue;
+                }
+              } else {
+                // create remote object
+                const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (createRes.ok) {
+                  const created = await createRes.json();
+                  const objectId = created.objectId || created.id;
+                  if (objectId) setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: objectId } : d));
+                  removeOp(op.id);
+                  continue;
+                }
+              }
+            }
+          }
+        }
+
+        // if we reach here, update attempt count and keep in queue
+        setPendingOps(prev => {
+          const next = prev.map(p => p.id === op.id ? { ...p, attempts: (p.attempts || 0) + 1, lastError: 'failed attempt' } : p);
+          persistOps(next);
+          return next;
+        });
+      } catch (e: any) {
+        // increment attempts
+        setPendingOps(prev => {
+          const next = prev.map(p => p.id === op.id ? { ...p, attempts: (p.attempts || 0) + 1, lastError: String(e?.message || e) } : p);
+          persistOps(next);
+          return next;
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    // try processing every 10s while there are ops (best-effort)
+    if (pendingOps.length === 0) return;
+    const id = setInterval(() => {
+      processQueue();
+    }, 10000);
+    // also try immediately
+    processQueue();
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOps.length]);
+
+  useEffect(() => {
+    const onOnline = () => { processQueue(); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const addDeltager = (d: Deltager) => setDeltagere((prev) => [...prev, d]);
   const updateResultater = (navn: string, resultater: EtappeResultat[]) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, resultater } : d));
+  const setEtappeStatus = (startnummer: string, etappe: number, status: DeltagerStatus) => {
+    setDeltagere(prev => prev.map(d => {
+      if (d.startnummer !== startnummer) return d;
+      const results = Array.isArray(d.resultater) ? [...d.resultater] : [];
+      const idx = Math.max(0, etappe - 1);
+      const existing = results[idx] || { etappe, starttid: '', maltid: '', idealtid: '', diff: '' };
+      results[idx] = { ...existing, status } as EtappeResultat;
+      return { ...d, resultater: results };
+    }));
+  };
   const editDeltager = (navn: string, data: Partial<Deltager>) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, ...data } : d));
   const deleteDeltager = (navn: string) => setDeltagere((prev) => prev.filter(d => d.navn !== navn));
 
@@ -217,8 +367,42 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
     })();
   };
 
+  const updateDeltager = async (startnummer: string, data: Partial<Deltager>): Promise<boolean> => {
+    // update local state immediately
+    setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, ...data } : d));
+    try {
+      const local = deltagere.find(d => d.startnummer === startnummer);
+      const payload = { ...(local || {}), ...data };
+      const id = local?.parseId;
+      if (id) {
+        const res = await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) return true;
+      } else {
+        const listRes = await fetch('/api/deltagere');
+        if (listRes.ok) {
+          const list = await listRes.json();
+          const match = Array.isArray(list) && list.find((r:any) => String(r.startnummer) === String(startnummer));
+          if (match && (match.objectId || match.id)) {
+            const mid = match.objectId || match.id;
+            const res2 = await fetch(`/api/deltagere/${mid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res2.ok) {
+              setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, parseId: mid } : d));
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('updateDeltager failed, will enqueue', e);
+    }
+    // enqueue op for later retry
+    const op: PendingOp = { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, type: 'update', startnummer, payload: data, parseId: undefined, attempts: 0 };
+    enqueueOp(op);
+    return false;
+  };
+
   return (
-    <DeltagerContext.Provider value={{ deltagere, addDeltager, updateResultater, editDeltager, deleteDeltager, setDeltagerStatus, setMultipleDeltagerStatus }}>
+    <DeltagerContext.Provider value={{ deltagere, addDeltager, updateResultater, setEtappeStatus, editDeltager, deleteDeltager, setDeltagerStatus, setMultipleDeltagerStatus, updateDeltager }}>
       {children}
     </DeltagerContext.Provider>
   );

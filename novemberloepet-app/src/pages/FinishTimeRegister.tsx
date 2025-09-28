@@ -179,8 +179,8 @@ const FinishTimeRegister: React.FC = () => {
         </Stack>
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={1} alignItems="center">
-            <Grid item xs={12} sm={7}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Box sx={{ width: { xs: '100%', sm: '58%' } }}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten målgang"><ListIcon /></IconButton>
                 <Autocomplete
@@ -199,10 +199,7 @@ const FinishTimeRegister: React.FC = () => {
                   onInputChange={(event, value, reason) => {
                     if (reason === 'input') handleFreeInput(value);
                   }}
-                  renderOption={(props, option) => {
-                    // show no status here (option is string/object). We'll show status in dialog
-                    return (<li {...props}>{option.label}</li>);
-                  }}
+                  renderOption={(props, option) => (<li {...props}>{option.label}</li>)}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -215,9 +212,9 @@ const FinishTimeRegister: React.FC = () => {
                   )}
                 />
               </Stack>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} sm={2}>
+            <Box sx={{ width: { xs: '48%', sm: '16%' }, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 select
                 label="Etappe"
@@ -230,9 +227,9 @@ const FinishTimeRegister: React.FC = () => {
                   <MenuItem key={e.nummer} value={e.nummer}>{e.navn}</MenuItem>
                 ))}
               </TextField>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} sm={3}>
+            <Box sx={{ width: { xs: '100%', sm: '25%' }, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
                 label="Slutt-tid (hhmmss)"
@@ -251,16 +248,16 @@ const FinishTimeRegister: React.FC = () => {
                   )
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12}>
+            <Box sx={{ width: '100%', mt: 1 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 <Button type="submit" variant="contained" color="primary" fullWidth>Registrer tid</Button>
                 <Button variant="outlined" color="secondary" onClick={() => markStatus('DNS')}>Startet ikke</Button>
                 <Button variant="outlined" color="secondary" onClick={() => markStatus('DNF')}>Fullførte ikke</Button>
               </Stack>
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </form>
 
         {deltager && (
