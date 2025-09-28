@@ -2,14 +2,32 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { Box, Typography, TextField, Button, Paper, Autocomplete, Stack } from '@mui/material';
+import { IMaskInput } from 'react-imask';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 function formatStartTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
   if (!clean) return '';
-  const padded = clean.padStart(6, '0');
-  return `${padded.slice(0,2)}:${padded.slice(2,4)}:${padded.slice(4,6)}`;
+  // Pad to 4 digits to represent hhmm -> hh:mm
+  const padded = clean.padStart(4, '0').slice(-4);
+  return `${padded.slice(0,2)}:${padded.slice(2,4)}`;
 }
+
+// IMask wrapper for hh:mm
+const MaskedTimeInput = React.forwardRef(function MaskedTimeInput(props: any, ref: any) {
+  const { onChange, ...other } = props;
+  return (
+    <IMaskInput
+      {...other}
+      mask="00:00"
+      inputRef={ref}
+      overwrite
+      onAccept={(value: any) => {
+        if (onChange) onChange({ target: { value } });
+      }}
+    />
+  );
+});
 
 const StartTimeRegister: React.FC = () => {
   const { deltagere, editDeltager } = useDeltagerContext();
@@ -101,17 +119,20 @@ const StartTimeRegister: React.FC = () => {
               />
             </Box>
 
-            {/* Fixed width time input that shows hh:mm:ss; store only digits in state */}
-            <Box sx={{ width: { xs: '100%', sm: '180px' }, mt: { xs: 1, sm: 0 } }}>
+            {/* Fixed width time input that shows hh:mm using react-imask */}
+            <Box sx={{ width: { xs: '100%', sm: '140px' }, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
-                label="Starttid (hh:mm:ss)"
-                placeholder="hh:mm:ss"
-                value={inputTid ? formatStartTimeInput(inputTid) : ''}
-                onChange={e => setInputTid(e.target.value.replace(/\D/g, ''))}
+                label="Starttid (hh:mm)"
+                placeholder="hh:mm"
+                value={inputTid}
+                onChange={e => setInputTid(e.target.value)}
                 fullWidth
                 size="small"
-                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*', maxLength: 8 }}
+                InputProps={{
+                  inputComponent: MaskedTimeInput as any,
+                  inputMode: 'numeric'
+                }}
               />
             </Box>
 

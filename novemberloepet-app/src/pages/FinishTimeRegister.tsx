@@ -5,7 +5,9 @@ import {
   Box, Typography, TextField, Button, Paper, Autocomplete, Stack, IconButton,
   Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, DialogActions, Snackbar, Alert, Chip
 } from '@mui/material';
+import MenuItem from '@mui/material/MenuItem';
 import ListIcon from '@mui/icons-material/List';
+import { IMaskInput } from 'react-imask';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 function formatTimeInput(input: string): string {
@@ -17,6 +19,22 @@ function formatTimeInput(input: string): string {
   return `${padded.slice(0,2)}:${padded.slice(2,4)}:${padded.slice(4,6)}`;
 }
 
+// IMask wrapper for hh:mm:ss
+const MaskedTimeInputFinish = React.forwardRef(function MaskedTimeInputFinish(props: any, ref: any) {
+  const { onChange, ...other } = props;
+  return (
+    <IMaskInput
+      {...other}
+      mask="00:00:00"
+      inputRef={ref}
+      overwrite
+      onAccept={(value: any) => {
+        if (onChange) onChange({ target: { value } });
+      }}
+    />
+  );
+});
+
 const FinishTimeRegister: React.FC = () => {
   const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
   const { etapper } = useEtappeContext();
@@ -26,21 +44,18 @@ const FinishTimeRegister: React.FC = () => {
   const [inputTid, setInputTid] = usePersistentState<string>('finishtime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
 
-  // Snackbar state
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'info' | 'warning' | 'error'>('info');
 
   const valgtEtappe = etapper.find(e => e.nummer === etappe);
 
-  // autocomplete options
   const options = deltagere.map(d => ({ label: `#${d.startnummer} — ${d.navn}`, value: d.startnummer, data: d }));
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const timeRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    // focus search for quick input on mobile
     setTimeout(() => {
       searchRef.current?.focus();
     }, 200);
@@ -52,7 +67,6 @@ const FinishTimeRegister: React.FC = () => {
 
   const deltager = deltagere.find(d => d.startnummer === startnummer) || selected;
 
-  // Helper to register time for a participant (person) with provided raw input (hhmmss or formatted)
   const registerTime = (person: Deltager, rawInput: string) => {
     if (!person) return;
     const tid = formatTimeInput(rawInput);
@@ -76,12 +90,10 @@ const FinishTimeRegister: React.FC = () => {
       setInputTid('');
       setStartnummer('');
       setSelected(null);
-      // focus search again for next participant
       setTimeout(() => searchRef.current?.focus(), 100);
     }
   };
 
-  // helper to allow free typing of startnummer into autocomplete
   const handleFreeInput = (value: string) => {
     const numeric = value.replace(/\D/g, '');
     if (numeric) {
@@ -95,7 +107,6 @@ const FinishTimeRegister: React.FC = () => {
 
   const quickSetEtappe = (nummer: number) => {
     setEtappe(nummer);
-    // focus the time input so user can immediately type time
     setTimeout(() => timeRef.current?.focus(), 50);
   };
 
@@ -121,8 +132,13 @@ const FinishTimeRegister: React.FC = () => {
   const [pendingStatus, setPendingStatus] = useState<'DNS' | 'DNF' | null>(null);
 
   const handleStatusInitiate = (status: 'DNS' | 'DNF') => {
-    if (!deltager) { setTimeout(() => searchRef.current?.focus(), 50); setSnackMsg('Velg deltager først'); setSnackSeverity('warning'); setSnackOpen(true); return; }
-    // blur focused element before opening dialog so aria-hidden won't hide a focused node
+    if (!deltager) {
+      setTimeout(() => searchRef.current?.focus(), 50);
+      setSnackMsg('Velg deltager først');
+      setSnackSeverity('warning');
+      setSnackOpen(true);
+      return;
+    }
     try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setPendingStatus(status);
     setConfirmStatusOpen(true);
@@ -143,13 +159,16 @@ const FinishTimeRegister: React.FC = () => {
   };
 
   const participantsMissingFinish = () => {
-    // include participants who do not have maltid OR who are DNS/DNF (so we can visually mark them)
-    return deltagere.filter(d => {
-      const res = d.resultater?.[etappe - 1];
-      const maltid = res?.maltid;
-      const status = res?.status;
-      return (!maltid || maltid === '') || status === 'DNS' || status === 'DNF';
-    });
+    // Return participants who are missing a finish time or have DNS/DNF, sorted by numeric startnummer
+    return deltagere
+      .filter(d => {
+        const res = d.resultater?.[etappe - 1];
+        const maltid = res?.maltid;
+        const status = res?.status;
+        return (!maltid || maltid === '') || status === 'DNS' || status === 'DNF';
+      })
+      .slice()
+      .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
   };
 
   return (
@@ -157,7 +176,6 @@ const FinishTimeRegister: React.FC = () => {
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Typography variant="h6" gutterBottom>Registrer slutt-tid (målgang)</Typography>
 
-        {/* Quick register buttons (mobile friendly) */}
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
           {etapper.map(e => (
             <Button key={e.nummer} size="small" variant={e.nummer===etappe? 'contained' : 'outlined'} onClick={() => quickSetEtappe(e.nummer)} sx={{ minWidth: 80 }}>
@@ -167,69 +185,66 @@ const FinishTimeRegister: React.FC = () => {
         </Stack>
 
         <form onSubmit={handleSubmit}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {/* Make the startnummer field flexible so the whole value is visible */}
-            <Box sx={{ width: { xs: '100%', sm: '65%' }, flexGrow: 1 }}>
-               <Stack direction="row" spacing={1} alignItems="center">
-                 <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten målgang"><ListIcon /></IconButton>
-                 <Autocomplete
-                   freeSolo
-                   options={options}
-                   getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt.label)}
-                   onChange={(event, value) => {
-                     if (!value) { setSelected(null); setStartnummer(''); return; }
-                     if (typeof value === 'string') {
-                       handleFreeInput(value);
-                     } else {
-                       setSelected(value.data);
-                       setStartnummer(value.value);
-                     }
-                   }}
-                   onInputChange={(event, value, reason) => {
-                     if (reason === 'input') handleFreeInput(value);
-                   }}
-                   renderOption={(props, option) => {
-                     // avoid spreading a props object that contains a `key` prop (React warns about this)
-                     const { key, ...rest } = props as any;
-                     return (<li key={key} {...rest}>{option.label}</li>);
-                   }}
-                   renderInput={(params) => (
-                     <TextField
-                       {...params}
-                       inputRef={searchRef}
-                       label="Startnummer eller navn"
-                       placeholder="Søk eller skriv startnummer"
-                       fullWidth
-                       size="small"
-                     />
-                   )}
-                 />
-               </Stack>
-             </Box>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ width: '100%' }}>
 
-             {/* Fixed, modest width for the time input so hh:mm:ss can be seen */}
-             <Box sx={{ width: { xs: '100%', sm: '180px' }, flexGrow: 0, mt: { xs: 1, sm: 0 } }}>
+            {/* Startnummer felt */}
+            <Box sx={{ flex: 1, minWidth: 220 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten målgang"><ListIcon /></IconButton>
+                {/* Vanlig nedtrekksliste: kun deltagere som mangler slutt-tid */}
+                <TextField
+                  select
+                  label="Startnummer eller navn"
+                  inputRef={searchRef}
+                  value={startnummer}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const sel = deltagere.find(d => d.startnummer === val) || null;
+                    setStartnummer(val);
+                    setSelected(sel);
+                    // focus time input after selection
+                    setTimeout(() => timeRef.current?.focus(), 50);
+                  }}
+                  fullWidth
+                  size="small"
+                >
+                  {participantsMissingFinish().length > 0 ? (
+                    participantsMissingFinish().map(d => (
+                      <MenuItem key={d.startnummer} value={d.startnummer}>#{d.startnummer} — {d.navn}</MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="" disabled>Ingen deltagere uten slutt-tid</MenuItem>
+                  )}
+                </TextField>
+              </Stack>
+            </Box>
+
+            {/* Slutt-tid felt med react-imask */}
+            <Box sx={{ width: { xs: '100%', sm: '160px' }, flexShrink: 0 }}>
               <TextField
                 inputRef={timeRef}
                 label="Slutt-tid (hh:mm:ss)"
                 placeholder="hh:mm:ss"
-                value={inputTid ? formatTimeInput(inputTid) : ''}
-                onChange={e => setInputTid(e.target.value.replace(/\D/g, ''))}
+                value={inputTid}
+                onChange={e => setInputTid(e.target.value)}
                 fullWidth
                 size="small"
-                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*', maxLength: 8 }}
+                InputProps={{
+                  inputComponent: MaskedTimeInputFinish as any,
+                  inputMode: 'numeric'
+                }}
               />
             </Box>
 
-             <Box sx={{ width: '100%', mt: 1 }}>
-               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                 <Button type="submit" variant="contained" color="primary" sx={{ width: { xs: '100%', sm: 'auto' } }}>Registrer tid</Button>
-                 <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNS')}>Startet ikke</Button>
-                 <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNF')}>Fullførte ikke</Button>
-               </Stack>
-             </Box>
-           </Stack>
-         </form>
+            <Box sx={{ width: '100%', mt: 1 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button type="submit" variant="contained" color="primary" sx={{ width: { xs: '100%', sm: 'auto' } }}>Registrer tid</Button>
+                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNS')}>Startet ikke</Button>
+                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNF')}>Fullførte ikke</Button>
+              </Stack>
+            </Box>
+          </Stack>
+        </form>
 
         {deltager && (
           <Box sx={{ mt: 1 }}>
