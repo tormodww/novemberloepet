@@ -8,6 +8,8 @@ import Results from './pages/Results';
 import FinishTimeRegister from './pages/FinishTimeRegister';
 import AdminEtapper from './pages/AdminEtapper';
 import ParticipantsList from './pages/ParticipantsList';
+import Startliste from './pages/Startliste';
+import AlleDeltagere from './pages/AlleDeltagere';
 import { DeltagerProvider } from './context/DeltagerContext';
 import { EtappeProvider } from './context/EtappeContext';
 
@@ -33,6 +35,12 @@ function App() {
       break;
     case 'participants':
       content = <ParticipantsList />;
+      break;
+    case 'startliste':
+      content = <Startliste />;
+      break;
+    case 'alledeltagere':
+      content = <AlleDeltagere />;
       break;
     default:
       content = <Home />;

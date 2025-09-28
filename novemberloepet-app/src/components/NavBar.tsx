@@ -24,6 +24,8 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
           <Button color="inherit" onClick={() => onNavigate('results')} disabled={currentPage==='results'}>Resultater</Button>
           <Button color="inherit" onClick={() => onNavigate('finishtime')} disabled={currentPage==='finishtime'}>Sluttidsregistrering</Button>
           <Button color="inherit" onClick={() => onNavigate('participants')} disabled={currentPage==='participants'}>Deltagere</Button>
+          <Button color="inherit" onClick={() => onNavigate('startliste')} disabled={currentPage==='startliste'}>Startliste</Button>
+          <Button color="inherit" onClick={() => onNavigate('alledeltagere')} disabled={currentPage==='alledeltagere'}>Alle deltagere</Button>
           <Button color="inherit" onClick={() => onNavigate('adminetapper')} disabled={currentPage==='adminetapper'}>Admin Etapper</Button>
         </Toolbar>
       </AppBar>

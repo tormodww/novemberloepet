@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, Button, Stack } from '@mui/material';
+import { Box, Typography, Button, Stack } from '@mui/material';
 
 function buildStartbekreftelseHTML(deltagere: any[], etapper: any[]) {
   const rows = deltagere.map(d => {
@@ -60,39 +60,12 @@ const ParticipantsList: React.FC = () => {
 
   return (
     <Box maxWidth={1100} mx="auto">
-      <Typography variant="h5" gutterBottom>Deltagere</Typography>
+      <Typography variant="h5" gutterBottom>Startbekreftelse / Utskrift</Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
         <Button variant="outlined" size="small" onClick={selectAll}>Velg alle</Button>
         <Button variant="outlined" size="small" onClick={clearAll}>Fjern valg</Button>
         <Button variant="contained" size="small" onClick={handlePrint} disabled={selected.length===0}>Vis / Skriv ut startbekreftelse</Button>
       </Stack>
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell></TableCell>
-              <TableCell>Nr</TableCell>
-              <TableCell>Navn</TableCell>
-              <TableCell>Klasse</TableCell>
-              <TableCell>Sykkel</TableCell>
-              <TableCell>Starttid</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {deltagere.map((d) => (
-              <TableRow key={d.startnummer} hover>
-                <TableCell padding="checkbox"><Checkbox checked={selected.includes(d.startnummer)} onChange={() => toggle(d.startnummer)} /></TableCell>
-                <TableCell>{d.startnummer}</TableCell>
-                <TableCell>{d.navn}</TableCell>
-                <TableCell>{d.klasse}</TableCell>
-                <TableCell>{d.sykkel}</TableCell>
-                <TableCell>{d.starttid}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
     </Box>
   );
 };

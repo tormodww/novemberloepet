@@ -44,39 +44,96 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Etappe[];
-        // basic validation: ensure array with nummer and navn
         if (Array.isArray(parsed) && parsed.every(p => typeof p.nummer === 'number')) {
           return parsed;
         }
       }
     } catch (e) {
-      // ignore and fall back to defaults
+      // ignore
     }
     return defaultEtapper;
   });
+  const [remoteId, setRemoteId] = useState<string | null>(null);
 
+  // Load from proxy on mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper));
-    } catch (e) {
-      // ignore storage errors
-    }
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/etapper');
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Expected JSON but got: ${contentType}`);
+        }
+        const json = await res.json();
+        // if proxy returned object with etapper array
+        if (json && typeof json === 'object' && 'etapper' in json && Array.isArray(json.etapper) && mounted) {
+          setEtapper(json.etapper);
+          setRemoteId(json.objectId || json.objectId || null);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(json.etapper));
+          return;
+        }
+        // if proxy returned array directly
+        if (Array.isArray(json) && json.length && mounted) {
+          setEtapper(json);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed to load etapper from proxy, falling back to local', e);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  // sync to localStorage whenever etapper changes
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper)); } catch (e) {}
   }, [etapper]);
 
+  const saveToProxy = async (payload: Etappe[]) => {
+    try {
+      // If we have a remoteId, update that object via PUT; otherwise create via POST
+      if (remoteId) {
+        await fetch(`/api/etapper/${remoteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ etapper: payload }) });
+      } else {
+        const res = await fetch('/api/etapper', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ etapper: payload }) });
+        if (res.ok) {
+          const j = await res.json();
+          if (j && (j.objectId || j.id)) setRemoteId(j.objectId || j.id);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to save etapper to proxy', e);
+    }
+  };
+
   const updateEtappenavn = (nummer: number, navn: string) => {
-    setEtapper(prev => prev.map(e => e.nummer === nummer ? { ...e, navn } : e));
+    const next = etapper.map(e => e.nummer === nummer ? { ...e, navn } : e);
+    setEtapper(next);
+    saveToProxy(next);
   };
   const updateIdealtid = (nummer: number, idealtid: string) => {
-    setEtapper(prev => prev.map(e => e.nummer === nummer ? { ...e, idealtid: formatIdealTimeInput(idealtid) } : e));
+    const formatted = formatIdealTimeInput(idealtid);
+    const next = etapper.map(e => e.nummer === nummer ? { ...e, idealtid: formatted } : e);
+    setEtapper(next);
+    saveToProxy(next);
   };
   const resetEtapper = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      // ignore
-    }
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     setEtapper(defaultEtapper);
+    (async () => {
+      try {
+        if (remoteId) {
+          await fetch(`/api/etapper/${remoteId}`, { method: 'DELETE' });
+          setRemoteId(null);
+        }
+      } catch (e) { console.warn('Failed to remove remote etapper config', e); }
+    })();
   };
+
   return (
     <EtappeContext.Provider value={{ etapper, setEtapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper }}>
       {children}
