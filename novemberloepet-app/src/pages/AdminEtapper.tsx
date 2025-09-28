@@ -1,0 +1,181 @@
+import React, { useEffect, useState } from 'react';
+import { useEtappeContext } from '../context/EtappeContext';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, IconButton, Button, FormControlLabel, Switch, Stack } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
+
+const AdminEtapper: React.FC = () => {
+  const { etapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper } = useEtappeContext();
+  // local edit buffer for idealtid per etappenummer
+  const [localIdeal, setLocalIdeal] = useState<Record<number, string>>({});
+  const [autoFormat, setAutoFormat] = useState(false);
+  const [saved, setSaved] = useState<Record<number, boolean>>({});
+
+  // When etapper change externally, sync local buffer for those not being edited
+  useEffect(() => {
+    const next: Record<number, string> = {};
+    etapper.forEach(e => {
+      next[e.nummer] = e.idealtid || '';
+    });
+    setLocalIdeal(prev => ({ ...next, ...prev }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etapper]);
+
+  const handleIdealChange = (nummer: number, value: string) => {
+    if (autoFormat) {
+      // format live but allow user to type numbers and colon
+      const formatted = formatIdealTimeInput(value);
+      setLocalIdeal(prev => ({ ...prev, [nummer]: formatted }));
+    } else {
+      setLocalIdeal(prev => ({ ...prev, [nummer]: value }));
+    }
+  };
+
+  // parse local input into minutes and seconds; return {valid, minutes, seconds, formatted}
+  const parseIdeal = (input: string) => {
+    const raw = (input || '').replace(/\s/g, '');
+    if (!raw) return { valid: false, minutes: 0, seconds: 0, formatted: '' };
+    // If contains colon, split
+    if (raw.includes(':')) {
+      const parts = raw.split(':');
+      if (parts.length !== 2) return { valid: false, minutes: 0, seconds: 0, formatted: '' };
+      const min = parseInt(parts[0] || '0', 10);
+      const sec = parseInt(parts[1] || '0', 10);
+      const valid = !isNaN(min) && !isNaN(sec) && sec >= 0 && sec < 60 && min >= 0;
+      const m = (isNaN(min) ? 0 : min).toString().padStart(2, '0');
+      const s = (isNaN(sec) ? 0 : sec).toString().padStart(2, '0');
+      return { valid, minutes: min, seconds: sec, formatted: `${m}:${s}` };
+    }
+    // Only digits: interpret last two as seconds
+    const clean = raw.replace(/\D/g, '');
+    if (!clean) return { valid: false, minutes: 0, seconds: 0, formatted: '' };
+    const len = clean.length;
+    const sec = parseInt(clean.slice(Math.max(0, len - 2)), 10);
+    const minPart = len > 2 ? clean.slice(0, len - 2) : '0';
+    const min = parseInt(minPart, 10);
+    const valid = !isNaN(min) && !isNaN(sec) && sec >= 0 && sec < 60 && min >= 0;
+    const m = (isNaN(min) ? 0 : min).toString().padStart(2, '0');
+    const s = (isNaN(sec) ? 0 : sec).toString().padStart(2, '0');
+    return { valid, minutes: min, seconds: sec, formatted: `${m}:${s}` };
+  };
+
+  const commitIdeal = (nummer: number) => {
+    const raw = localIdeal[nummer] ?? '';
+    const parsed = parseIdeal(raw);
+    if (!parsed.valid) {
+      // do not commit invalid value; keep focus and show red save icon
+      return;
+    }
+    updateIdealtid(nummer, parsed.formatted);
+    setLocalIdeal(prev => ({ ...prev, [nummer]: parsed.formatted }));
+    // mark as saved briefly
+    setSaved(prev => ({ ...prev, [nummer]: true }));
+    setTimeout(() => setSaved(prev => ({ ...prev, [nummer]: false })), 1500);
+  };
+
+  const handleKey = (e: React.KeyboardEvent, nummer: number) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLElement).blur(); // trigger onBlur -> commit
+    }
+  };
+
+  const isDirty = (nummer: number) => {
+    const local = localIdeal[nummer] ?? '';
+    const formatted = formatIdealTimeInput(local);
+    const stored = etapper.find(x => x.nummer === nummer)?.idealtid ?? '';
+    return formatted !== (stored || '');
+  };
+
+  const isInvalid = (nummer: number) => {
+    const local = localIdeal[nummer] ?? '';
+    const parsed = parseIdeal(local);
+    // invalid if not valid but non-empty
+    return local !== '' && !parsed.valid;
+  };
+
+  const handleReset = () => {
+    resetEtapper();
+    // let useEffect sync localIdeal from context after reset
+  };
+
+  const defaultSyncLocalValues = () => {
+    const next: Record<number, string> = {};
+    etapper.forEach(e => {
+      next[e.nummer] = e.idealtid || '';
+    });
+    setLocalIdeal(next);
+  };
+
+  useEffect(() => {
+    defaultSyncLocalValues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Box maxWidth={900} mx="auto">
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
+        <Typography variant="h6">Administrer etapper</Typography>
+        <FormControlLabel control={<Switch checked={autoFormat} onChange={(e) => setAutoFormat(e.target.checked)} />} label="Auto-format" />
+        <Button variant="outlined" color="secondary" onClick={handleReset}>Tilbakestill til defaults</Button>
+      </Stack>
+      <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ width: 60 }}>Nr</TableCell>
+              <TableCell>Navn</TableCell>
+              <TableCell sx={{ width: 200 }}>Idealtid (mm:ss)</TableCell>
+              <TableCell sx={{ width: 80 }}>Handling</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {etapper.map((e) => {
+              const dirty = isDirty(e.nummer);
+              const invalid = isInvalid(e.nummer);
+              return (
+                <TableRow key={e.nummer} hover>
+                  <TableCell>{e.nummer}</TableCell>
+                  <TableCell>
+                    <TextField
+                      size="small"
+                      value={e.navn}
+                      onChange={(evt) => updateEtappenavn(e.nummer, evt.target.value)}
+                      fullWidth
+                      margin="none"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      size="small"
+                      value={localIdeal[e.nummer] ?? ''}
+                      onChange={(evt) => handleIdealChange(e.nummer, evt.target.value)}
+                      onBlur={() => commitIdeal(e.nummer)}
+                      onKeyDown={(evt) => handleKey(evt, e.nummer)}
+                      fullWidth
+                      margin="none"
+                      placeholder="mmss or mm:ss"
+                      error={invalid}
+                      helperText={invalid ? 'Ugyldig tid (sekunder må være < 60)' : ''}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      title={invalid ? 'Ugyldig idealtid' : 'Lagre'}
+                      onClick={() => commitIdeal(e.nummer)}
+                      disabled={!dirty || invalid}
+                      color={invalid ? 'error' : (saved[e.nummer] ? 'success' : 'default')}
+                    >
+                      <SaveIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+};
+
+export default AdminEtapper;
