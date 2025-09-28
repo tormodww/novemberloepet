@@ -38,7 +38,7 @@ type DeltagerContextType = {
   updateResultater: (navn: string, resultater: EtappeResultat[]) => void;
   setEtappeStatus: (startnummer: string, etappe: number, status: DeltagerStatus) => void;
   editDeltager: (navn: string, data: Partial<Deltager>) => void;
-  deleteDeltager: (navn: string) => void;
+  deleteDeltager: (startnummer: string) => void;
   setDeltagerStatus: (startnummer: string, status: DeltagerStatus) => void;
   setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
   updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
@@ -286,7 +286,7 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
   const editDeltager = (navn: string, data: Partial<Deltager>) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, ...data } : d));
-  const deleteDeltager = (navn: string) => setDeltagere((prev) => prev.filter(d => d.navn !== navn));
+  const deleteDeltager = (startnummer: string) => setDeltagere((prev) => prev.filter(d => d.startnummer !== startnummer));
 
   const setDeltagerStatus = (startnummer: string, status: DeltagerStatus) => {
     setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, status } : d));

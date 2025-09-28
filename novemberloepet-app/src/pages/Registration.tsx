@@ -39,13 +39,12 @@ const initialState: Deltager = {
 
 const Registration: React.FC = () => {
   const [form, setForm] = usePersistentState<Deltager>('registration.form', initialState);
-  const [submitted, setSubmitted] = useState(false);
-  const { addDeltager } = useDeltagerContext();
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ email?: string; telefon?: string; startnummer?: string }>({});
+  const [registeredMessage, setRegisteredMessage] = useState<string | null>(null);
 
-  const { deltagere } = useDeltagerContext();
+  const { deltagere, addDeltager } = useDeltagerContext();
 
   // When participants change, default startnummer to max+1 if the form doesn't already have one
   useEffect(() => {
@@ -78,13 +77,20 @@ const Registration: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    if (name === 'startnummer') {
+      // strip non-digits and normalize to numeric string (remove leading zeros)
+      const digits = (value || '').replace(/\D/g, '');
+      const normalized = digits ? String(parseInt(digits, 10)) : '';
+      setForm({ ...form, [name]: normalized });
+      // numeric duplicate check (handles "01" vs "1")
+      const collision = deltagere.some(d => Number(d.startnummer) === Number(normalized));
+      setErrors(prev => ({ ...prev, startnummer: collision ? 'Startnummeret er allerede registrert' : undefined }));
+      return;
+    }
+
     setForm({ ...form, [name]: value });
     if (name === 'email') setErrors(prev => ({ ...prev, email: validateEmail(value) }));
     if (name === 'telefon') setErrors(prev => ({ ...prev, telefon: validateTelefon(value) }));
-    if (name === 'startnummer') {
-      const collision = deltagere.some(d => String(d.startnummer) === String(value));
-      setErrors(prev => ({ ...prev, startnummer: collision ? 'Startnummeret er allerede registrert' : undefined }));
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +99,7 @@ const Registration: React.FC = () => {
     const emailErr = validateEmail(form.email);
     const telErr = validateTelefon(form.telefon);
     // recompute startnummer collision check as final guard
-    const startCollision = deltagere.some(d => String(d.startnummer) === String(form.startnummer));
+    const startCollision = deltagere.some(d => Number(d.startnummer) === Number(form.startnummer));
     const startErr = startCollision ? 'Startnummeret er allerede registrert' : undefined;
     setErrors({ email: emailErr ? emailErr : undefined, telefon: telErr ? telErr : undefined, startnummer: startErr });
     if (emailErr || telErr || startErr) return;
@@ -126,20 +132,23 @@ const Registration: React.FC = () => {
           parseId: (created && (created.objectId || created.id)) || undefined
         };
         addDeltager(toAdd);
+        setRegisteredMessage(`Deltager ${toAdd.navn} er registrert med startnummer ${toAdd.startnummer}`);
       } else {
         const text = await res.text();
         setServerError(`Server feil: ${res.status} ${text}`);
         addDeltager(form);
+        setRegisteredMessage(`Deltager ${form.navn} er registrert med startnummer ${form.startnummer}`);
       }
     } catch (err: any) {
       setServerError(`Kunne ikke lagre til server: ${err.message || err}`);
       addDeltager(form);
+      setRegisteredMessage(`Deltager ${form.navn} er registrert med startnummer ${form.startnummer}`);
     } finally {
       setSaving(false);
       // keep form persisted but clear after successful attempt
       setForm(initialState);
-      setSubmitted(true);
-      setTimeout(() => setSubmitted(false), 2000);
+      // clear the success message after a short delay
+      setTimeout(() => setRegisteredMessage(null), 2000);
     }
   };
 
@@ -147,7 +156,7 @@ const Registration: React.FC = () => {
     <Box maxWidth={500} mx="auto">
       <Typography variant="h5" gutterBottom>Registrer deltager</Typography>
       <form onSubmit={handleSubmit}>
-        <TextField label="Startnummer" name="startnummer" value={form.startnummer} onChange={handleChange} fullWidth margin="normal" required disabled={saving} error={!!errors.startnummer} helperText={errors.startnummer} />
+        <TextField label="Startnummer" name="startnummer" value={form.startnummer} onChange={handleChange} fullWidth margin="normal" required disabled={saving} error={!!errors.startnummer} helperText={errors.startnummer} inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }} />
         <TextField label="Navn" name="navn" value={form.navn} onChange={handleChange} fullWidth margin="normal" required disabled={saving} />
         <TextField label="Adresse" name="adresse" value={form.adresse} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
         <TextField label="Postnr" name="postnr" value={form.postnr} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
@@ -175,7 +184,7 @@ const Registration: React.FC = () => {
       </form>
 
       {serverError && <Alert severity="error" sx={{ mt: 2 }}>{serverError}</Alert>}
-      {submitted && <Typography color="success.main" mt={2}>Deltager registrert!</Typography>}
+      {registeredMessage && <Typography color="success.main" mt={2}>{registeredMessage}</Typography>}
     </Box>
   );
 };

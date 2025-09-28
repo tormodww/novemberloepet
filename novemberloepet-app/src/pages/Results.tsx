@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
+import { useEtappeContext } from '../context/EtappeContext';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, TextField, DialogActions, Button } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
 
 const ETAPPER = 5; // Antall etapper, kan endres etter behov
 
 const Results: React.FC = () => {
-  const { deltagere, updateResultater, deleteDeltager, addDeltager, editDeltager } = useDeltagerContext();
+  const { deltagere, updateResultater, addDeltager, editDeltager } = useDeltagerContext();
+  const { etapper } = useEtappeContext();
   // Grupper deltagere per klasse
   const grupper: { [klasse: string]: typeof deltagere } = {};
   deltagere.forEach((d) => {
@@ -23,6 +24,8 @@ const Results: React.FC = () => {
   const [editInfo, setEditInfo] = useState<Partial<Deltager>>({});
 
   const handleEdit = (d: Deltager) => {
+    // blur any focused element before opening dialog so it's not hidden by aria-hidden
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setEditNavn(d.navn);
     setResultater(
       Array.from({ length: ETAPPER }, (_, i) =>
@@ -33,6 +36,7 @@ const Results: React.FC = () => {
   };
 
   const handleEditInfo = (d: Deltager) => {
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setEditNavn(d.navn);
     setEditInfo(d);
     setEditInfoOpen(true);
@@ -63,7 +67,7 @@ const Results: React.FC = () => {
                   <TableCell>Modell</TableCell>
                   <TableCell>Starttid</TableCell>
                   {Array.from({ length: ETAPPER }, (_, i) => (
-                    <TableCell key={i}>Etappe {i + 1} tid</TableCell>
+                    <TableCell key={i}>{etapper[i]?.navn ? `${etapper[i].navn}` : `Etappe ${i + 1} tid`}</TableCell>
                   ))}
                   <TableCell>Handling</TableCell>
                 </TableRow>
@@ -81,7 +85,7 @@ const Results: React.FC = () => {
                     <TableCell>
                       <IconButton onClick={() => handleEdit(d)} size="small"><EditIcon /></IconButton>
                       <IconButton onClick={() => handleEditInfo(d)} size="small" color="primary"><EditIcon fontSize="small" /></IconButton>
-                      <IconButton onClick={() => deleteDeltager(d.navn)} size="small" color="error"><DeleteIcon /></IconButton>
+                      {/* delete moved to Startliste */}
                     </TableCell>
                   </TableRow>
                 ))}

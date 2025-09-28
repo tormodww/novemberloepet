@@ -7,10 +7,8 @@ import { usePersistentState } from '../hooks/usePersistentState';
 function formatStartTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
   if (!clean) return '';
-  if (clean.length <= 2) return clean.padStart(2, '0') + ':00';
-  if (clean.length === 3) return '0' + clean[0] + ':' + clean.slice(1);
-  if (clean.length === 4) return clean.slice(0, 2) + ':' + clean.slice(2);
-  return clean.slice(0, 2) + ':' + clean.slice(2, 4);
+  const padded = clean.padStart(6, '0');
+  return `${padded.slice(0,2)}:${padded.slice(2,4)}:${padded.slice(4,6)}`;
 }
 
 const StartTimeRegister: React.FC = () => {
@@ -78,7 +76,8 @@ const StartTimeRegister: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+            {/* Make startnummer field wider so whole number is visible */}
+            <Box sx={{ width: { xs: '100%', sm: '65%' } }}>
               <Autocomplete
                 freeSolo
                 options={options}
@@ -102,15 +101,17 @@ const StartTimeRegister: React.FC = () => {
               />
             </Box>
 
-            <Box sx={{ width: { xs: '100%', sm: '50%' }, mt: { xs: 1, sm: 0 } }}>
+            {/* Fixed width time input that shows hh:mm:ss; store only digits in state */}
+            <Box sx={{ width: { xs: '100%', sm: '180px' }, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
-                label="Starttid (hhmm)"
-                value={inputTid}
-                onChange={e => setInputTid(e.target.value)}
+                label="Starttid (hh:mm:ss)"
+                placeholder="hh:mm:ss"
+                value={inputTid ? formatStartTimeInput(inputTid) : ''}
+                onChange={e => setInputTid(e.target.value.replace(/\D/g, ''))}
                 fullWidth
                 size="small"
-                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*' }}
+                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*', maxLength: 8 }}
               />
             </Box>
 

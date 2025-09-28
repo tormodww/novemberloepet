@@ -3,6 +3,7 @@ import { useDeltagerContext } from '../context/DeltagerContext';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Checkbox, Button, Stack, Chip, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, MenuItem, IconButton, CircularProgress, Alert } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 // Felter som kan sorteres på
 const sortableFields = [
@@ -47,7 +48,7 @@ function buildStartbekreftelseHTML(deltagere: any[]) {
 }
 
 const Startliste: React.FC = () => {
-  const { deltagere, setMultipleDeltagerStatus, updateDeltager } = useDeltagerContext();
+  const { deltagere, setMultipleDeltagerStatus, updateDeltager, deleteDeltager } = useDeltagerContext();
   const [sortField, setSortField] = usePersistentState<SortField>('startliste.sortField', 'startnummer');
   const [sortOrder, setSortOrder] = usePersistentState<SortOrder>('startliste.sortOrder', 'asc');
   const [selected, setSelected] = usePersistentState<string[]>('startliste.selected', []);
@@ -59,6 +60,8 @@ const Startliste: React.FC = () => {
   const [editData, setEditData] = React.useState<Partial<any> | null>(null);
   const [editSaving, setEditSaving] = React.useState(false);
   const [editMessage, setEditMessage] = React.useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<{ startnummer: string; navn: string } | null>(null);
 
   // derive available classes for filter
   const uniqueKlasser = Array.from(new Set(deltagere.map(d => d.klasse))).filter(Boolean);
@@ -129,6 +132,8 @@ const Startliste: React.FC = () => {
 
   const handleStatusInitiate = (status: 'DNS' | 'DNF') => {
     if (selected.length === 0) return alert('Velg én eller flere deltagere først');
+    // blur any currently focused element so opening the dialog won't hide a focused node
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) { /* ignore */ }
     setConfirmAction(status);
     setConfirmOpen(true);
   };
@@ -207,9 +212,28 @@ const Startliste: React.FC = () => {
     return <Chip label={status} size="small" />;
   };
 
+  const openDeleteConfirm = (startnummer: string, navn: string) => {
+    // blur focused element before opening dialog to avoid aria-hidden hiding focused node
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) { /* ignore */ }
+    setDeleteTarget({ startnummer, navn });
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    // delete by startnummer (context API expects startnummer)
+    deleteDeltager(deleteTarget.startnummer);
+    setConfirmDeleteOpen(false);
+    setDeleteTarget(null);
+  };
+
+  const handleCancelDelete = () => { setConfirmDeleteOpen(false); setDeleteTarget(null); };
+
   return (
     <Box maxWidth={1100} mx="auto">
-      <Typography variant="h5" gutterBottom>Startliste</Typography>
+      <Typography variant="h5" gutterBottom>
+        Startliste (totalt {deltagere.length} {deltagere.length === 1 ? 'deltager' : 'deltagere'})
+      </Typography>
 
       <Stack direction="row" spacing={2} sx={{ mb: 1 }} alignItems="center">
         <TextField size="small" placeholder="Søk på navn" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -223,8 +247,8 @@ const Startliste: React.FC = () => {
       <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
         <Button variant="outlined" size="small" onClick={selectAll}>Velg alle</Button>
         <Button variant="outlined" size="small" onClick={clearAll}>Fjern valg</Button>
-        <Button variant="contained" size="small" onClick={() => handleStatusInitiate('DNS')} disabled={selected.length===0} color="warning">Sett: Startet ikke</Button>
-        <Button variant="contained" size="small" onClick={() => handleStatusInitiate('DNF')} disabled={selected.length===0} color="error">Sett: Fullførte ikke</Button>
+        <Button variant="contained" size="small" onClick={() => handleStatusInitiate('DNS')} disabled={selected.length===0} color="warning">Startet ikke</Button>
+        <Button variant="contained" size="small" onClick={() => handleStatusInitiate('DNF')} disabled={selected.length===0} color="error">Fullførte ikke</Button>
         <Button variant="contained" size="small" onClick={handlePrint} disabled={selected.length===0}>Vis / Skriv ut startbekreftelse</Button>
       </Stack>
 
@@ -261,6 +285,9 @@ const Startliste: React.FC = () => {
                 <TableCell>
                   <IconButton size="small" onClick={() => openEdit(d)} title="Rediger deltager">
                     <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" color="error" onClick={() => openDeleteConfirm(d.startnummer, d.navn)} title="Slett deltager">
+                    <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -315,6 +342,20 @@ const Startliste: React.FC = () => {
         <DialogActions>
           <Button onClick={handleCancelConfirm}>Avbryt</Button>
           <Button onClick={handleConfirm} variant="contained" color="primary">Bekreft</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={confirmDeleteOpen} onClose={handleCancelDelete}>
+        <DialogTitle>Bekreft sletting</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Er du sikker på at du vil slette {deleteTarget ? `#${deleteTarget.startnummer} ${deleteTarget.navn}` : 'den valgte deltakeren'}? Dette kan ikke angres.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete}>Avbryt</Button>
+          <Button onClick={handleConfirmDelete} variant="contained" color="error">Slett</Button>
         </DialogActions>
       </Dialog>
 

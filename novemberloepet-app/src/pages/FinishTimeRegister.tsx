@@ -2,10 +2,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import {
-  Box, Typography, TextField, Button, Paper, Autocomplete, Stack, InputAdornment, IconButton,
+  Box, Typography, TextField, Button, Paper, Autocomplete, Stack, IconButton,
   Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, DialogActions, Snackbar, Alert, Chip
 } from '@mui/material';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ListIcon from '@mui/icons-material/List';
 import { usePersistentState } from '../hooks/usePersistentState';
 
@@ -100,35 +99,10 @@ const FinishTimeRegister: React.FC = () => {
     setTimeout(() => timeRef.current?.focus(), 50);
   };
 
-  // New behavior: set now and immediately register (one-touch)
-  const setNowAndRegister = () => {
-    const person = deltager;
-    if (!person) {
-      setTimeout(() => searchRef.current?.focus(), 50);
-      setSnackMsg('Velg deltager først');
-      setSnackSeverity('warning');
-      setSnackOpen(true);
-      return;
-    }
-    const now = new Date();
-    const hh = now.getHours().toString().padStart(2, '0');
-    const mm = now.getMinutes().toString().padStart(2, '0');
-    const ss = now.getSeconds().toString().padStart(2, '0');
-    const raw = `${hh}${mm}${ss}`; // HHMMSS
-    registerTime(person, raw);
-    // clear inputs and refocus search for next
-    setInputTid('');
-    setStartnummer('');
-    setSelected(null);
-    setTimeout(() => searchRef.current?.focus(), 100);
-    setSnackMsg('Tid registrert');
-    setSnackSeverity('success');
-    setSnackOpen(true);
-  };
-
   const [openDialog, setOpenDialog] = useState(false);
 
   const openMissingDialog = () => {
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setOpenDialog(true);
   };
 
@@ -143,16 +117,29 @@ const FinishTimeRegister: React.FC = () => {
     setTimeout(() => timeRef.current?.focus(), 50);
   };
 
-  const markStatus = (status: 'DNS' | 'DNF') => {
+  const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<'DNS' | 'DNF' | null>(null);
+
+  const handleStatusInitiate = (status: 'DNS' | 'DNF') => {
     if (!deltager) { setTimeout(() => searchRef.current?.focus(), 50); setSnackMsg('Velg deltager først'); setSnackSeverity('warning'); setSnackOpen(true); return; }
-    setEtappeStatus(deltager.startnummer, etappe, status);
-    setBekreft(`#${deltager.startnummer} ${deltager.navn} ${valgtEtappe?.navn}: ${status}`);
-    setStartnummer('');
-    setSelected(null);
-    setTimeout(() => searchRef.current?.focus(), 100);
-    setSnackMsg(`Status ${status} satt for #${deltager.startnummer}`);
-    setSnackSeverity('info');
-    setSnackOpen(true);
+    // blur focused element before opening dialog so aria-hidden won't hide a focused node
+    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
+    setPendingStatus(status);
+    setConfirmStatusOpen(true);
+  };
+
+  const handleStatusConfirm = () => {
+    if (pendingStatus && deltager) {
+      setEtappeStatus(deltager.startnummer, etappe, pendingStatus);
+      setBekreft(`#${deltager.startnummer} ${deltager.navn} ${valgtEtappe?.navn}: ${pendingStatus}`);
+      setStartnummer('');
+      setSelected(null);
+      setTimeout(() => searchRef.current?.focus(), 100);
+      setSnackMsg(`Status ${pendingStatus} satt for #${deltager.startnummer}`);
+      setSnackSeverity('info');
+      setSnackOpen(true);
+    }
+    setConfirmStatusOpen(false);
   };
 
   const participantsMissingFinish = () => {
@@ -181,70 +168,68 @@ const FinishTimeRegister: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Box sx={{ width: { xs: '100%', sm: '58%' } }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten målgang"><ListIcon /></IconButton>
-                <Autocomplete
-                  freeSolo
-                  options={options}
-                  getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt.label)}
-                  onChange={(event, value) => {
-                    if (!value) { setSelected(null); setStartnummer(''); return; }
-                    if (typeof value === 'string') {
-                      handleFreeInput(value);
-                    } else {
-                      setSelected(value.data);
-                      setStartnummer(value.value);
-                    }
-                  }}
-                  onInputChange={(event, value, reason) => {
-                    if (reason === 'input') handleFreeInput(value);
-                  }}
-                  renderOption={(props, option) => (<li {...props}>{option.label}</li>)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      inputRef={searchRef}
-                      label="Startnummer eller navn"
-                      placeholder="Søk eller skriv startnummer"
-                      fullWidth
-                      size="small"
-                    />
-                  )}
-                />
-              </Stack>
-            </Box>
+            {/* Make the startnummer field flexible so the whole value is visible */}
+            <Box sx={{ width: { xs: '100%', sm: '65%' }, flexGrow: 1 }}>
+               <Stack direction="row" spacing={1} alignItems="center">
+                 <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten målgang"><ListIcon /></IconButton>
+                 <Autocomplete
+                   freeSolo
+                   options={options}
+                   getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt.label)}
+                   onChange={(event, value) => {
+                     if (!value) { setSelected(null); setStartnummer(''); return; }
+                     if (typeof value === 'string') {
+                       handleFreeInput(value);
+                     } else {
+                       setSelected(value.data);
+                       setStartnummer(value.value);
+                     }
+                   }}
+                   onInputChange={(event, value, reason) => {
+                     if (reason === 'input') handleFreeInput(value);
+                   }}
+                   renderOption={(props, option) => {
+                     // avoid spreading a props object that contains a `key` prop (React warns about this)
+                     const { key, ...rest } = props as any;
+                     return (<li key={key} {...rest}>{option.label}</li>);
+                   }}
+                   renderInput={(params) => (
+                     <TextField
+                       {...params}
+                       inputRef={searchRef}
+                       label="Startnummer eller navn"
+                       placeholder="Søk eller skriv startnummer"
+                       fullWidth
+                       size="small"
+                     />
+                   )}
+                 />
+               </Stack>
+             </Box>
 
-            <Box sx={{ width: { xs: '100%', sm: '25%' }, mt: { xs: 1, sm: 0 } }}>
+             {/* Fixed, modest width for the time input so hh:mm:ss can be seen */}
+             <Box sx={{ width: { xs: '100%', sm: '180px' }, flexGrow: 0, mt: { xs: 1, sm: 0 } }}>
               <TextField
                 inputRef={timeRef}
-                label="Slutt-tid (hhmmss)"
-                value={inputTid}
-                onChange={e => setInputTid(e.target.value)}
+                label="Slutt-tid (hh:mm:ss)"
+                placeholder="hh:mm:ss"
+                value={inputTid ? formatTimeInput(inputTid) : ''}
+                onChange={e => setInputTid(e.target.value.replace(/\D/g, ''))}
                 fullWidth
                 size="small"
-                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*' }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton size="small" onClick={setNowAndRegister} edge="end" aria-label="Sett nåværende tid og registrer">
-                        <AccessTimeIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
+                inputProps={{ inputMode: 'numeric', pattern: '[0-9:]*', maxLength: 8 }}
               />
             </Box>
 
-            <Box sx={{ width: '100%', mt: 1 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button type="submit" variant="contained" color="primary" fullWidth>Registrer tid</Button>
-                <Button variant="outlined" color="secondary" onClick={() => markStatus('DNS')}>Startet ikke</Button>
-                <Button variant="outlined" color="secondary" onClick={() => markStatus('DNF')}>Fullførte ikke</Button>
-              </Stack>
-            </Box>
-          </Stack>
-        </form>
+             <Box sx={{ width: '100%', mt: 1 }}>
+               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                 <Button type="submit" variant="contained" color="primary" sx={{ width: { xs: '100%', sm: 'auto' } }}>Registrer tid</Button>
+                 <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNS')}>Startet ikke</Button>
+                 <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNF')}>Fullførte ikke</Button>
+               </Stack>
+             </Box>
+           </Stack>
+         </form>
 
         {deltager && (
           <Box sx={{ mt: 1 }}>
@@ -273,6 +258,21 @@ const FinishTimeRegister: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeMissingDialog}>Lukk</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmStatusOpen} onClose={() => setConfirmStatusOpen(false)}>
+        <DialogTitle>Bekreft status endring</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {pendingStatus === 'DNS'
+              ? `Er du sikker på at du vil sette status "Startet ikke" for #${deltager?.startnummer ?? ''} ${deltager?.navn ?? ''}?`
+              : `Er du sikker på at du vil sette status "Fullførte ikke" for #${deltager?.startnummer ?? ''} ${deltager?.navn ?? ''}?`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmStatusOpen(false)}>Avbryt</Button>
+          <Button onClick={handleStatusConfirm} variant="contained" color="primary">Bekreft</Button>
         </DialogActions>
       </Dialog>
 
