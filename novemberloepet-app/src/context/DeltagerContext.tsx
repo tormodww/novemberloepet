@@ -45,6 +45,8 @@ type DeltagerContextType = {
   pendingOps: PendingOp[];
   retryOp: (id: string) => void;
   clearOp: (id: string) => void;
+  setConfirmSelection: (startnummer: string | null) => void;
+  navigateTo: (page: string) => void;
 };
 
 const DeltagerContext = createContext<DeltagerContextType | undefined>(undefined);
@@ -114,7 +116,7 @@ const generatedTestDeltagere = (() => {
   return arr;
 })();
 
-export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
+export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode; onNavigate?: (page: string) => void }) => {
   const [deltagere, setDeltagere] = useState<Deltager[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -423,6 +425,18 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
     return false;
   };
 
+  // Confirm-selection state: allows other pages (e.g. Startliste) to tell Confirmation which startnummer to select
+  const [confirmSelectedStartnummer, setConfirmSelectedStartnummer] = useState<string | null>(null);
+
+  // navigation helper: if onNavigate prop provided, use it; otherwise no-op
+  const navigateTo = (page: string) => {
+    try {
+      if (typeof onNavigate === 'function') onNavigate(page);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   return (
     <DeltagerContext.Provider value={{
       deltagere,
@@ -446,8 +460,12 @@ export const DeltagerProvider = ({ children }: { children: ReactNode }) => {
         setTimeout(() => { processQueue(); }, 200);
       },
       clearOp: (id: string) => removeOp(id),
-    }}>
-      {children}
-    </DeltagerContext.Provider>
-  );
-};
+      // confirm selection and navigation helpers
+      navigateTo,
+      confirmSelectedStartnummer,
+      setConfirmSelection: setConfirmSelectedStartnummer,
+     }}>
+       {children}
+     </DeltagerContext.Provider>
+   );
+ };

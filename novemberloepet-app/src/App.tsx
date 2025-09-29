@@ -44,7 +44,7 @@ function App() {
 
   return (
     <EtappeProvider>
-      <DeltagerProvider>
+      <DeltagerProvider onNavigate={setPage}>
         <div className="App">
           <NavBar onNavigate={setPage} currentPage={page} />
           <div style={{ padding: 24 }}>{content}</div>
