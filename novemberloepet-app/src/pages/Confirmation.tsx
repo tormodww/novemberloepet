@@ -10,7 +10,9 @@ import {
   TableContainer,
   TableRow,
   TextField,
-  Typography
+  Typography,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 
 const Confirmation: React.FC = () => {
@@ -18,11 +20,13 @@ const Confirmation: React.FC = () => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [signaturDato, setSignaturDato] = useState<string>('');
   const deltager = selectedIdx !== null ? deltagere[selectedIdx] : null;
+  const theme = useTheme();
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
     <Box maxWidth={800} mx="auto" p={4}>
       {/* Sticky dropdown øverst for raskt valg av deltager (fester seg under AppBar ved scroll) */}
-      <Box sx={{ position: 'sticky', top: { xs: '56px', sm: '64px' }, background: 'background.paper', zIndex: 1200, pt: 1, pb: 1, mb: 2, boxShadow: 1 }}>
+      <Box sx={{ position: 'sticky', top: { xs: '56px', sm: '64px' }, background: 'background.paper', zIndex: 1200, pt: 1, pb: 1, mb: 2, boxShadow: 1, '@media print': { position: 'static', boxShadow: 'none' } }}>
         <TextField
           select
           label="Velg deltager"
@@ -66,32 +70,65 @@ const Confirmation: React.FC = () => {
 
       {deltager && (
         <Box mt={3}>
-          {/* Kompakt tabell: to label/value-par per rad (4 kolonner) */}
-          <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-            <Table size="small" aria-label="deltager-compact">
-              <TableBody>
+          {/* Kompakt tabell: to label/value-par per rad (4 kolonner). Hvis liten skjerm, vis stacked layout */}
+          <TableContainer component={Paper} variant="outlined" sx={{ mb: 3, '@media print': { boxShadow: 'none' } }}>
+            {!isSmall ? (
+              <Table size="small" aria-label="deltager-compact">
+                <TableBody>
+                  {[
+                    // row: [label1, value1, label2, value2]
+                    ['Navn', deltager.navn || '-', 'Fødselsår', (deltager as any).fodselsaar ?? '0'],
+                    ['Adresse', deltager.adresse || '-', 'Postnummer', deltager.postnr || '0'],
+                    ['Poststed', deltager.poststed || '-', 'tlf', deltager.telefon || '-'],
+                    ['E‑Mail', (deltager as any).email || (deltager as any).epost || '-', 'Sykkel', deltager.sykkel || '-'],
+                    ['Modell', deltager.modell || (deltager as any).mod || '-', 'Antall løp', '-'],
+                    ['Teknisk alder', deltager.teknisk || (deltager as any).tekniskAar || '-', 'Klasse', deltager.klasse || (deltager as any).preKlasse || '-'],
+                    // times rows
+                    ['Fremmøte', 'Kl. 09:00', 'Maskinkontroll', 'Stikkprøver kl. 09:00–10:30'],
+                    ['Parc Ferme', 'Kl. 10:00', 'Føremøte', 'Kl. 10:00'],
+                    ['Første start', 'Kl. 10:30', 'Egen starttid', `Kl. ${deltager.starttid || '-'}`],
+                  ].map(([l1, v1, l2, v2]) => {
+                    // determine if v1 or v2 are times -> right align
+                    const timeLabels = ['Fremmøte','Maskinkontroll','Parc Ferme','Føremøte','Første start','Egen starttid'];
+                    const v1IsTime = timeLabels.includes(l1 as string);
+                    const v2IsTime = timeLabels.includes(l2 as string);
+                    return (
+                      <TableRow key={`${l1}-${l2}`}>
+                        <TableCell sx={{ width: '25%' }}>{l1}</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.95rem', width: '25%', textAlign: v1IsTime ? 'right' : 'left' }}>{v1}</TableCell>
+                        <TableCell sx={{ width: '25%' }}>{l2}</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', fontSize: '0.95rem', width: '25%', textAlign: v2IsTime ? 'right' : 'left' }}>{v2}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            ) : (
+              <Box p={2}>
                 {[
-                  // row: [label1, value1, label2, value2]
-                  ['Navn', deltager.navn || '-', 'Fødselsår', (deltager as any).fodselsaar ?? '0'],
-                  ['Adresse', deltager.adresse || '-', 'Postnummer', deltager.postnr || '0'],
-                  ['Poststed', deltager.poststed || '-', 'tlf', deltager.telefon || '-'],
-                  ['E‑Mail', (deltager as any).email || (deltager as any).epost || '-', 'Sykkel', deltager.sykkel || '-'],
-                  ['Modell', deltager.modell || (deltager as any).mod || '-', 'Antall løp', '-'],
-                  ['Teknisk alder', deltager.teknisk || (deltager as any).tekniskAar || '-', 'Klasse', deltager.klasse || (deltager as any).preKlasse || '-'],
-                  // times rows
-                  ['Fremmøte', 'Kl. 09:00', 'Maskinkontroll', 'Stikkprøver kl. 09:00–10:30'],
-                  ['Parc Ferme', 'Kl. 10:00', 'Føremøte', 'Kl. 10:00'],
-                  ['Første start', 'Kl. 10:30', 'Egen starttid', `Kl. ${deltager.starttid || '-'}`],
-                ].map(([l1, v1, l2, v2]) => (
-                  <TableRow key={`${l1}-${l2}`}>
-                    <TableCell sx={{ width: '25%' }}>{l1}</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{v1}</TableCell>
-                    <TableCell sx={{ width: '25%' }}>{l2}</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{v2}</TableCell>
-                  </TableRow>
+                  ['Navn', deltager.navn || '-','Fødselsår',(deltager as any).fodselsaar ?? '0'],
+                  ['Adresse', deltager.adresse || '-','Postnummer',deltager.postnr || '0'],
+                  ['Poststed', deltager.poststed || '-','tlf',deltager.telefon || '-'],
+                  ['E‑Mail', (deltager as any).email || (deltager as any).epost || '-','Sykkel',deltager.sykkel || '-'],
+                  ['Modell', deltager.modell || (deltager as any).mod || '-','Antall løp','-'],
+                  ['Teknisk alder', deltager.teknisk || (deltager as any).tekniskAar || '-','Klasse',deltager.klasse || (deltager as any).preKlasse || '-'],
+                  ['Fremmøte','Kl. 09:00','Maskinkontroll','Stikkprøver kl. 09:00–10:30'],
+                  ['Parc Ferme','Kl. 10:00','Føremøte','Kl. 10:00'],
+                  ['Første start','Kl. 10:30','Egen starttid',`Kl. ${deltager.starttid || '-'}`],
+                ].map(([l1,v1,l2,v2]) => (
+                  <Box key={`${l1}-${l2}`} mb={1}>
+                    <Box display="flex" flexDirection="column">
+                      <Typography variant="caption">{l1}</Typography>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{v1}</Typography>
+                    </Box>
+                    <Box display="flex" flexDirection="column" mt={1}>
+                      <Typography variant="caption">{l2}</Typography>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{v2}</Typography>
+                    </Box>
+                  </Box>
                 ))}
-              </TableBody>
-            </Table>
+              </Box>
+            )}
           </TableContainer>
 
           <Typography variant="body2" fontWeight="bold" mb={2}>
