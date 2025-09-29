@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { useDeltagerContext } from '../context/DeltagerContext';
-import { Box, Typography, MenuItem, TextField, Paper, TableContainer, Table, TableBody, TableRow, TableCell } from '@mui/material';
+import {
+  Box,
+  MenuItem,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  TextField,
+  Typography
+} from '@mui/material';
 
 const Confirmation: React.FC = () => {
   const { deltagere } = useDeltagerContext();
@@ -73,17 +84,17 @@ const Confirmation: React.FC = () => {
                   ['Første start', 'Kl. 10:30', 'Egen starttid', `Kl. ${deltager.starttid || '-'}`],
                 ].map(([l1, v1, l2, v2]) => (
                   <TableRow key={`${l1}-${l2}`}>
-                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{l1}</TableCell>
-                    <TableCell sx={{ width: '25%' }}>{v1}</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{l2}</TableCell>
-                    <TableCell sx={{ width: '25%' }}>{v2}</TableCell>
+                    <TableCell sx={{ width: '25%' }}>{l1}</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{v1}</TableCell>
+                    <TableCell sx={{ width: '25%' }}>{l2}</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{v2}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
 
-          <Typography variant="body2" mb={2}>
+          <Typography variant="body2" fontWeight="bold" mb={2}>
             NB Husk enkeltmannspakke og ryggskinne
           </Typography>
 
@@ -116,20 +127,30 @@ const Confirmation: React.FC = () => {
             Jeg deltar i løpet på eget ansvar, og vil ikke kreve erstatningsansvar mot arrangør eller grunneiere ved evt. skade. Jeg har ikke begrensninger på utøvelse av sport fra min lege
           </Typography>
 
-          <Box mb={3} display="flex" alignItems="center" gap={2}>
-            <TextField
-              label="Dato (signatur)"
-              type="date"
-              value={signaturDato}
-              onChange={e => setSignaturDato(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-            />
-            <TextField
-              label="Sted"
-              defaultValue="Moss"
-              size="small"
-            />
+          <Box mb={3}>
+            <Box display="flex" alignItems="center" gap={3} mb={3}> {/* Endret fra mb={1} til mb={3} */}
+              <Typography variant="body2" fontWeight="bold"> </Typography>
+            </Box>
+          </Box>
+
+          <Box mb={3}>
+            <Box display="flex" alignItems="center" gap={3} mb={3}> {/* Endret fra mb={1} til mb={3} */}
+              <Typography variant="body2" fontWeight="bold">Dato</Typography>
+              <Typography variant="body2">27.09.2025 Moss mc</Typography>
+              <Typography variant="body2" fontWeight="bold">Moss</Typography>
+            </Box>
+          </Box>
+
+          <Box mb={3}>
+            <Box display="flex" alignItems="center" gap={3} mb={3}> {/* Endret fra mb={1} til mb={3} */}
+              <Typography variant="body2" fontWeight="bold"> </Typography>
+            </Box>
+          </Box>
+
+          <Box mb={3}>
+            <Box display="flex" alignItems="center" gap={3} mb={3}> {/* Endret fra mb={1} til mb={3} */}
+              <Typography variant="body2" fontWeight="bold"> </Typography>
+            </Box>
           </Box>
 
           <Box borderTop={2} borderColor="black" pt={2} mb={3}>
