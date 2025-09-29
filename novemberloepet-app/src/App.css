@@ -36,3 +36,14 @@
     transform: rotate(360deg);
   }
 }
+
+@media print {
+    body {
+        zoom: 95%; /* eller prøv 85% hvis det fortsatt er for stort */
+    }
+    .no-print {
+        display: none !important;
+    }
+}
+
+

@@ -50,7 +50,7 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1, mb: 2 }}>
+    <Box className="no-print" sx={{ flexGrow: 1, mb: 2 }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
