@@ -43,7 +43,7 @@ const Results: React.FC = () => {
   };
 
   const handleEditInfoChange = (field: keyof Deltager, value: string) => {
-    setEditInfo((prev) => ({ ...prev, [field]: value }));
+    setEditInfo((prev: Partial<Deltager>) => ({ ...prev, [field]: value }));
   };
 
   const handleEditInfoSave = () => {

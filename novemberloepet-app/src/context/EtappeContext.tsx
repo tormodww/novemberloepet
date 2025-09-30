@@ -90,7 +90,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         await updateEtapperById(remoteId, payload);
       } else {
         const res = await createEtapper(payload);
-        if (res && (res.objectId || res.id)) setRemoteId(res.objectId || res.id);
+        if (res && (res.objectId || res.id)) setRemoteId(res.objectId ?? res.id ?? null);
       }
     } catch (e) {
       console.warn('Failed to save etapper to proxy', e);

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 import type { Deltager, DeltagerStatus, EtappeResultat, PendingOp } from '../api/types';
+export type { Deltager, DeltagerStatus, EtappeResultat } from '../api/types';
 import { computeBackoff } from '../api/opQueue';
 import { fetchAllDeltagere, updateDeltagereById, createDeltagere, findRemoteByStartnummer } from '../api/deltagere';
 
