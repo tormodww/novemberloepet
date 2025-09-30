@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, MenuItem, Typography, Alert } from '@mui/material';
-import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
+import { useDeltagerContext } from '../context/DeltagerContext';
+import type { Deltager } from '../api/types';
 import { usePersistentState } from '../hooks/usePersistentState';
+import { createDeltagere } from '../api/deltagere';
 
 const classes = [
   'Oldtimer',
@@ -107,38 +109,29 @@ const Registration: React.FC = () => {
     setServerError(null);
 
     try {
-      const res = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-      if (res.ok) {
-        const json = await res.json();
-        const created: any = json;
-        const toAdd: Deltager = {
-          startnummer: form.startnummer,
-          navn: form.navn,
-          adresse: form.adresse,
-          postnr: form.postnr,
-          nasjon: form.nasjon,
-          poststed: form.poststed,
-          telefon: form.telefon,
-          email: form.email,
-          sykkel: form.sykkel,
-          mod: (form as any).mod,
-          modell: form.modell,
-          teknisk: form.teknisk,
-          preKlasse: form.preKlasse,
-          klasse: form.klasse,
-          starttid: form.starttid,
-          resultater: form.resultater || [],
-          status: (created && created.status) || 'NONE',
-          parseId: (created && (created.objectId || created.id)) || undefined
-        };
-        addDeltager(toAdd);
-        setRegisteredMessage(`Deltager ${toAdd.navn} er registrert med startnummer ${toAdd.startnummer}`);
-      } else {
-        const text = await res.text();
-        setServerError(`Server feil: ${res.status} ${text}`);
-        addDeltager(form);
-        setRegisteredMessage(`Deltager ${form.navn} er registrert med startnummer ${form.startnummer}`);
-      }
+      const created = await createDeltagere(form as any);
+      const toAdd: Deltager = {
+        startnummer: form.startnummer,
+        navn: form.navn,
+        adresse: form.adresse,
+        postnr: form.postnr,
+        nasjon: form.nasjon,
+        poststed: form.poststed,
+        telefon: form.telefon,
+        email: form.email,
+        sykkel: form.sykkel,
+        mod: (form as any).mod,
+        modell: form.modell,
+        teknisk: form.teknisk,
+        preKlasse: form.preKlasse,
+        klasse: form.klasse,
+        starttid: form.starttid,
+        resultater: form.resultater || [],
+        status: (created && created.status) || 'NONE',
+        parseId: (created && (created.objectId || created.id)) || undefined
+      };
+      addDeltager(toAdd);
+      setRegisteredMessage(`Deltager ${toAdd.navn} er registrert med startnummer ${toAdd.startnummer}`);
     } catch (err: any) {
       setServerError(`Kunne ikke lagre til server: ${err.message || err}`);
       addDeltager(form);

@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Etappe = {
-  nummer: number;
-  navn: string;
-  idealtid: string; // mm:ss
-};
+import type { Etappe } from '../api/types';
+import { fetchEtapper, createEtapper, updateEtapperById, deleteEtapperById } from '../api/etapper';
 
 function formatIdealTimeInput(input: string): string {
   // Fjerner alt annet enn tall
@@ -60,23 +57,17 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     let mounted = true;
     const load = async () => {
       try {
-        const res = await fetch('/api/etapper');
-        const contentType = res.headers.get('content-type') || '';
-        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-        if (!contentType.includes('application/json')) {
-          throw new Error(`Expected JSON but got: ${contentType}`);
-        }
-        const json = await res.json();
+        const json = await fetchEtapper();
         // if proxy returned object with etapper array
         if (json && typeof json === 'object' && 'etapper' in json && Array.isArray(json.etapper) && mounted) {
-          setEtapper(json.etapper);
-          setRemoteId(json.objectId || json.objectId || null);
+          setEtapper(json.etapper as Etappe[]);
+          setRemoteId((json.objectId || json.id) ?? null);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(json.etapper));
           return;
         }
         // if proxy returned array directly
         if (Array.isArray(json) && json.length && mounted) {
-          setEtapper(json);
+          setEtapper(json as Etappe[]);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
           return;
         }
@@ -95,15 +86,11 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const saveToProxy = async (payload: Etappe[]) => {
     try {
-      // If we have a remoteId, update that object via PUT; otherwise create via POST
       if (remoteId) {
-        await fetch(`/api/etapper/${remoteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ etapper: payload }) });
+        await updateEtapperById(remoteId, payload);
       } else {
-        const res = await fetch('/api/etapper', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ etapper: payload }) });
-        if (res.ok) {
-          const j = await res.json();
-          if (j && (j.objectId || j.id)) setRemoteId(j.objectId || j.id);
-        }
+        const res = await createEtapper(payload);
+        if (res && (res.objectId || res.id)) setRemoteId(res.objectId || res.id);
       }
     } catch (e) {
       console.warn('Failed to save etapper to proxy', e);
@@ -127,7 +114,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     (async () => {
       try {
         if (remoteId) {
-          await fetch(`/api/etapper/${remoteId}`, { method: 'DELETE' });
+          await deleteEtapperById(remoteId);
           setRemoteId(null);
         }
       } catch (e) { console.warn('Failed to remove remote etapper config', e); }
@@ -135,7 +122,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   return (
-    <EtappeContext.Provider value={{ etapper, setEtapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper }}>
+    <EtappeContext.Provider value={{ etapper: etapper as Etappe[], setEtapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper }}>
       {children}
     </EtappeContext.Provider>
   );

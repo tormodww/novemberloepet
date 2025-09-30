@@ -137,5 +137,17 @@ app.put('/api/etapper/:id', async (req, res) => {
   }
 });
 
+// Delete etappe config by id
+app.delete('/api/etapper/:id', async (req, res) => {
+  try {
+    const { status, data } = await proxyRequest('delete', `/classes/EtappeConfig/${req.params.id}`);
+    if (status === 401 || status === 403) return res.status(401).json({ error: 'unauthorized' });
+    if (status === 200 || status === 204) return res.json({ success: true });
+    return res.status(status).json(data);
+  } catch (e) {
+    return res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Proxy server running on port ${PORT}`));

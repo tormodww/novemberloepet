@@ -1,36 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type EtappeResultat = {
-  etappe: number;
-  starttid: string;
-  maltid: string;
-  idealtid: string;
-  diff: string;
-  status?: DeltagerStatus;
-};
-
-export type DeltagerStatus = 'OK' | 'DNS' | 'DNF' | 'NONE';
-
-export type Deltager = {
-  startnummer: string;
-  navn: string;
-  adresse?: string;
-  postnr?: string;
-  nasjon: string;
-  poststed: string;
-  telefon?: string;
-  email?: string;
-  sykkel: string;
-  mod?: string;
-  modell: string;
-  teknisk?: string;
-  preKlasse?: string;
-  klasse: string;
-  starttid: string;
-  resultater?: EtappeResultat[];
-  status?: DeltagerStatus;
-  parseId?: string; // optional backend id (objectId)
-};
+import type { Deltager, DeltagerStatus, EtappeResultat, PendingOp } from '../api/types';
+import { computeBackoff } from '../api/opQueue';
+import { fetchAllDeltagere, updateDeltagereById, createDeltagere, findRemoteByStartnummer } from '../api/deltagere';
 
 type DeltagerContextType = {
   deltagere: Deltager[];
@@ -48,6 +20,8 @@ type DeltagerContextType = {
   // accepts a single startnummer string, an array of startnummer strings, or null to clear
   setConfirmSelection: (startnummer: string | string[] | null) => void;
   navigateTo: (page: string) => void;
+  // the currently selected startnummer for the Confirmation page (or null)
+  confirmSelectedStartnummer: string | null;
 };
 
 const DeltagerContext = createContext<DeltagerContextType | undefined>(undefined);
@@ -60,24 +34,6 @@ export const useDeltagerContext = () => {
 
 const STORAGE_KEY = 'novemberloepet.deltagere.v1';
 const OPS_KEY = 'novemberloepet.pendingops.v1';
-
-type PendingOpType = 'update' | 'create' | 'delete';
-type PendingOp = {
-  id: string;
-  type: PendingOpType;
-  startnummer?: string;
-  payload?: any;
-  parseId?: string | null;
-  attempts: number;
-  lastError?: string | null;
-  nextAttemptAt?: number | null;
-};
-
-function computeBackoff(attempts: number) {
-  const a = Math.max(1, attempts || 1);
-  const backoff = 2000 * Math.pow(2, a - 1);
-  return Math.min(60000, backoff);
-}
 
 const generatedTestDeltagere = (() => {
   const bikes = [
@@ -189,10 +145,11 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
           const sn = op.startnummer;
           const local = sn ? deltagere.find(d => d.startnummer === sn) : undefined;
           const payload = { ...(local || {}), ...(op.payload || {}) };
+
           // if we have parseId, try direct PUT
           if (op.parseId) {
-            const res = await fetch(`/api/deltagere/${op.parseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (res.ok) {
+            const ok = await updateDeltagereById(String(op.parseId), payload as any);
+            if (ok) {
               removeOp(op.id);
               continue;
             }
@@ -200,29 +157,25 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
 
           // otherwise try to find remote by startnummer
           if (sn) {
-            const listRes = await fetch('/api/deltagere');
-            if (listRes.ok) {
-              const list = await listRes.json();
-              const match = Array.isArray(list) && list.find((r: any) => String(r.startnummer) === String(sn));
-              if (match && (match.objectId || match.id)) {
-                const mid = match.objectId || match.id;
-                const res2 = await fetch(`/api/deltagere/${mid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (res2.ok) {
-                  // store parseId locally
-                  setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: mid } : d));
-                  removeOp(op.id);
-                  continue;
-                }
-              } else {
-                // create remote object
-                const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (createRes.ok) {
-                  const created = await createRes.json();
-                  const objectId = created.objectId || created.id;
-                  if (objectId) setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: objectId } : d));
-                  removeOp(op.id);
-                  continue;
-                }
+            const match = await findRemoteByStartnummer(String(sn));
+            if (match && (match.objectId || match.id)) {
+              const mid = match.objectId || match.id;
+              const ok = await updateDeltagereById(String(mid), payload as any);
+              if (ok) {
+                // store parseId locally
+                setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: mid } : d));
+                removeOp(op.id);
+                continue;
+              }
+            } else {
+              try {
+                const created = await createDeltagere(payload as any);
+                const objectId = created.objectId || created.id;
+                if (objectId) setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: objectId } : d));
+                removeOp(op.id);
+                continue;
+              } catch (e) {
+                // fallthrough to retry logic
               }
             }
           }
@@ -273,7 +226,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     const onOnline = () => { processQueue(); };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addDeltager = (d: Deltager) => setDeltagere((prev) => [...prev, d]);
@@ -299,33 +252,27 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
         // First try to use local parseId if available
         const local = deltagere.find(d => d.startnummer === startnummer);
         if (local && local.parseId) {
-          await fetch(`/api/deltagere/${local.parseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+          await updateDeltagereById(String(local.parseId), { status } as any);
           return;
         }
 
-        // fetch remote list to map startnummer -> objectId
-        const res = await fetch('/api/deltagere');
-        if (!res.ok) throw new Error(`Failed to fetch remote deltagere: ${res.status}`);
-        const list = await res.json();
-        if (!Array.isArray(list)) throw new Error('Remote deltagere response not an array');
-        const match = list.find((r: any) => String(r.startnummer) === String(startnummer));
+        const match = await findRemoteByStartnummer(String(startnummer));
         if (match && (match.objectId || match.id)) {
           const id = match.objectId || match.id;
-          await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+          await updateDeltagereById(String(id), { status } as any);
           // store parseId locally
           setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, parseId: id } : d));
         } else {
-          // create new remote object
           if (local) {
             const payload = { ...local, status };
-            const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (createRes.ok) {
-              const created = await createRes.json();
+            try {
+              const created = await createDeltagere(payload as any);
               const objectId = created.objectId || created.id;
               if (objectId) {
-                // update local parseId
                 setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, parseId: objectId } : d));
               }
+            } catch (e) {
+              // ignore create errors here
             }
           }
         }
@@ -340,9 +287,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     // persist to backend for each
     (async () => {
       try {
-        // fetch remote list once
-        const res = await fetch('/api/deltagere');
-        const list = res.ok ? await res.json() : [];
+        const list = await fetchAllDeltagere();
         const map = new Map<string, any>();
         if (Array.isArray(list)) list.forEach((r: any) => { if (r && r.startnummer) map.set(String(r.startnummer), r); });
 
@@ -350,7 +295,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
           const local = deltagere.find(d => d.startnummer === sn);
           if (local && local.parseId) {
             try {
-              await fetch(`/api/deltagere/${local.parseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+              await updateDeltagereById(String(local.parseId), { status } as any);
             } catch (e) {
               console.warn(`Failed to update remote participant ${sn}`, e);
             }
@@ -361,7 +306,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
           if (match && (match.objectId || match.id)) {
             const id = match.objectId || match.id;
             try {
-              await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+              await updateDeltagereById(String(id), { status } as any);
               // store parseId locally
               setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: id } : d));
             } catch (e) {
@@ -372,13 +317,10 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
             if (local) {
               const payload = { ...local, status };
               try {
-                const createRes = await fetch('/api/deltagere', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (createRes.ok) {
-                  const created = await createRes.json();
-                  const objectId = created.objectId || created.id;
-                  if (objectId) {
-                    setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: objectId } : d));
-                  }
+                const created = await createDeltagere(payload as any);
+                const objectId = created.objectId || created.id;
+                if (objectId) {
+                  setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: objectId } : d));
                 }
               } catch (e) {
                 console.warn(`Failed to create remote participant for ${sn}`, e);
@@ -400,20 +342,16 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       const payload = { ...(local || {}), ...data };
       const id = local?.parseId;
       if (id) {
-        const res = await fetch(`/api/deltagere/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.ok) return true;
+        const ok = await updateDeltagereById(String(id), payload as any);
+        if (ok) return true;
       } else {
-        const listRes = await fetch('/api/deltagere');
-        if (listRes.ok) {
-          const list = await listRes.json();
-          const match = Array.isArray(list) && list.find((r:any) => String(r.startnummer) === String(startnummer));
-          if (match && (match.objectId || match.id)) {
-            const mid = match.objectId || match.id;
-            const res2 = await fetch(`/api/deltagere/${mid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (res2.ok) {
-              setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, parseId: mid } : d));
-              return true;
-            }
+        const match = await findRemoteByStartnummer(String(startnummer));
+        if (match && (match.objectId || match.id)) {
+          const mid = match.objectId || match.id;
+          const ok = await updateDeltagereById(String(mid), payload as any);
+          if (ok) {
+            setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, parseId: mid } : d));
+            return true;
           }
         }
       }
@@ -439,7 +377,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
   };
 
   return (
-    <DeltagerContext.Provider value={{
+    <DeltagerContext.Provider value={({
       deltagere,
       addDeltager,
       updateResultater,
@@ -464,9 +402,15 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       // confirm selection and navigation helpers
       navigateTo,
       confirmSelectedStartnummer,
-      setConfirmSelection: setConfirmSelectedStartnummer,
-     }}>
-       {children}
-     </DeltagerContext.Provider>
-   );
- };
+      setConfirmSelection: (v: string | string[] | null) => {
+        if (Array.isArray(v)) {
+          setConfirmSelectedStartnummer(v.length ? String(v[0]) : null);
+        } else {
+          setConfirmSelectedStartnummer(v);
+        }
+      },
+    } as DeltagerContextType)}>
+      {children}
+    </DeltagerContext.Provider>
+  );
+};
