@@ -40,7 +40,9 @@ const FinishTimeRegister: React.FC = () => {
   const { etapper } = useEtappeContext();
   const [startnummer, setStartnummer] = usePersistentState<string>('finishtime.startnummer', '');
   const [selected, setSelected] = usePersistentState<Deltager | null>('finishtime.selected', null);
-  const [etappe, setEtappe] = usePersistentState<number>('finishtime.etappe', 1);
+  const [etappe, setEtappe] = usePersistentState<number | null>('finishtime.etappe', null);
+  const [visAlle, setVisAlle] = useState<boolean>(false);
+  const canRegister = etappe !== null;
   const [inputTid, setInputTid] = usePersistentState<string>('finishtime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
 
@@ -48,7 +50,7 @@ const FinishTimeRegister: React.FC = () => {
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'info' | 'warning' | 'error'>('info');
 
-  const valgtEtappe = etapper.find(e => e.nummer === etappe);
+  const valgtEtappe = etappe !== null ? etapper.find(e => e.nummer === etappe) : undefined;
 
   const options = deltagere.map(d => ({ label: `#${d.startnummer} — ${d.navn}`, value: d.startnummer, data: d }));
 
@@ -69,13 +71,21 @@ const FinishTimeRegister: React.FC = () => {
 
   const registerTime = (person: Deltager, rawInput: string) => {
     if (!person) return;
+    if (etappe === null) {
+      // safety: should not happen because button is disabled, but guard anyway
+      setSnackMsg('Velg en etappe først');
+      setSnackSeverity('warning');
+      setSnackOpen(true);
+      return;
+    }
     const tid = formatTimeInput(rawInput);
     const ETAPPER = etapper.length;
     const nyeResultater: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) =>
       person.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }
     );
-    nyeResultater[etappe - 1] = {
-      ...nyeResultater[etappe - 1],
+    const idx = etappe - 1;
+    nyeResultater[idx] = {
+      ...nyeResultater[idx],
       maltid: tid
     };
     editDeltager(person.navn, { resultater: nyeResultater });
@@ -84,6 +94,13 @@ const FinishTimeRegister: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // require etappe selection
+    if (!canRegister) {
+      setSnackMsg('Velg en etappe først');
+      setSnackSeverity('warning');
+      setSnackOpen(true);
+      return;
+    }
     const person = deltager;
     if (person && inputTid) {
       registerTime(person, inputTid);
@@ -146,7 +163,9 @@ const FinishTimeRegister: React.FC = () => {
 
   const handleStatusConfirm = () => {
     if (pendingStatus && deltager) {
-      setEtappeStatus(deltager.startnummer, etappe, pendingStatus);
+      if (!canRegister) return;
+      // etappe is non-null here due to canRegister
+      setEtappeStatus(deltager.startnummer, etappe, pendingStatus as any);
       setBekreft(`#${deltager.startnummer} ${deltager.navn} ${valgtEtappe?.navn}: ${pendingStatus}`);
       setStartnummer('');
       setSelected(null);
@@ -160,6 +179,7 @@ const FinishTimeRegister: React.FC = () => {
 
   const participantsMissingFinish = () => {
     // Return participants who are missing a finish time or have DNS/DNF, sorted by numeric startnummer
+    if (etappe === null) return [];
     return deltagere
       .filter(d => {
         const res = d.resultater?.[etappe - 1];
@@ -169,6 +189,12 @@ const FinishTimeRegister: React.FC = () => {
       })
       .slice()
       .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
+  };
+
+  // Helper to return either all deltagere or only those missing finish for the selected etappe
+  const filteredForFinish = () => {
+    if (visAlle) return deltagere.slice().sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
+    return participantsMissingFinish();
   };
 
   return (
@@ -183,6 +209,25 @@ const FinishTimeRegister: React.FC = () => {
             </Button>
           ))}
         </Stack>
+
+        {/* Visningsvalg */}
+        <TextField
+          select
+          label="Vis"
+          value={visAlle ? 'alle' : 'uten'}
+          onChange={(e) => setVisAlle(e.target.value === 'alle')}
+          size="small"
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value="uten">Kun uten slutt-tid</MenuItem>
+          <MenuItem value="alle">Alle deltagere</MenuItem>
+        </TextField>
+
+        {!canRegister && (
+          <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+            Velg en etappe før registrering
+          </Typography>
+        )}
 
         <form onSubmit={handleSubmit}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ width: '100%' }}>
@@ -208,12 +253,12 @@ const FinishTimeRegister: React.FC = () => {
                   fullWidth
                   size="small"
                 >
-                  {participantsMissingFinish().length > 0 ? (
-                    participantsMissingFinish().map(d => (
+                  {filteredForFinish().length > 0 ? (
+                    filteredForFinish().map(d => (
                       <MenuItem key={d.startnummer} value={d.startnummer}>#{d.startnummer} — {d.navn}</MenuItem>
                     ))
                   ) : (
-                    <MenuItem value="" disabled>Ingen deltagere uten slutt-tid</MenuItem>
+                    <MenuItem value="" disabled>Ingen deltagere</MenuItem>
                   )}
                 </TextField>
               </Stack>
@@ -238,9 +283,9 @@ const FinishTimeRegister: React.FC = () => {
 
             <Box sx={{ width: '100%', mt: 1 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button type="submit" variant="contained" color="primary" sx={{ width: { xs: '100%', sm: 'auto' } }}>Registrer tid</Button>
-                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNS')}>Startet ikke</Button>
-                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNF')}>Fullførte ikke</Button>
+                <Button type="submit" variant="contained" color="primary" sx={{ width: { xs: '100%', sm: 'auto' } }} disabled={!canRegister}>Registrer tid</Button>
+                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNS')} disabled={!canRegister}>Startet ikke</Button>
+                <Button variant="outlined" color="secondary" onClick={() => handleStatusInitiate('DNF')} disabled={!canRegister}>Fullførte ikke</Button>
               </Stack>
             </Box>
           </Stack>
@@ -249,8 +294,8 @@ const FinishTimeRegister: React.FC = () => {
         {deltager && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2">#{deltager.startnummer} {deltager.navn}</Typography>
-            <Typography variant="body2">Nåværende slutt-tid {valgtEtappe?.navn}: {deltager.resultater?.[etappe-1]?.maltid || 'Ikke satt'}</Typography>
-            <Typography variant="body2">Status: {deltager.resultater?.[etappe-1]?.status || 'NONE'}</Typography>
+            <Typography variant="body2">Nåværende slutt-tid {valgtEtappe?.navn ?? ''}: {etappe !== null ? (deltager.resultater?.[(etappe as number)-1]?.maltid || 'Ikke satt') : 'Velg en etappe'}</Typography>
+            <Typography variant="body2">Status: {etappe !== null ? (deltager.resultater?.[(etappe as number)-1]?.status || 'NONE') : 'Velg en etappe'}</Typography>
           </Box>
         )}
 
@@ -261,12 +306,13 @@ const FinishTimeRegister: React.FC = () => {
         <DialogTitle>Deltagere uten målgang - {valgtEtappe?.navn}</DialogTitle>
         <DialogContent dividers>
           <List>
-            {participantsMissingFinish().map(d => (
+            {filteredForFinish().map(d => (
               <ListItemButton key={d.startnummer} onClick={() => onSelectFromDialog(d)}>
                 <ListItemText primary={`#${d.startnummer} ${d.navn}`} secondary={`${d.klasse} • ${d.sykkel}`} />
-                {/* visual marker for DNS/DNF if present */}
-                {d.resultater?.[etappe-1]?.status === 'DNS' && <Chip label="Startet ikke" color="error" size="small" sx={{ ml: 1 }} />}
-                {d.resultater?.[etappe-1]?.status === 'DNF' && <Chip label="Fullførte ikke" color="warning" size="small" sx={{ ml: 1 }} />}
+                {/* visual marker for DNF if present and etappe selected */}
+                {etappe !== null && d.resultater?.[etappe - 1]?.status === 'DNF' && (
+                  <Chip label="FULLFØRTE IKKE" color="warning" size="small" sx={{ ml: 1 }} />
+                )}
               </ListItemButton>
             ))}
           </List>

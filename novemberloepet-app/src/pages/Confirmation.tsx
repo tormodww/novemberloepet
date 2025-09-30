@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDeltagerContext } from '../context/DeltagerContext';
 import {
   Box,
@@ -9,19 +9,48 @@ import {
 import DeltagerPrintView from './DeltagerPrintView'; // juster path etter behov
 
 const Confirmation: React.FC = () => {
-  const { deltagere } = useDeltagerContext();
-  const { confirmSelectedStartnummer, setConfirmSelection } = useDeltagerContext();
+  const { deltagere, confirmSelectedStartnummer, setConfirmSelection } = useDeltagerContext();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const selectRef = useRef<HTMLInputElement | null>(null);
+  const printableRef = useRef<HTMLDivElement | null>(null);
   const deltager = selectedIdx !== null ? deltagere[selectedIdx] : null;
 
   // If another page requested a preselection, apply it here and then clear the request
   useEffect(() => {
-    if (!confirmSelectedStartnummer) return;
-    const idx = deltagere.findIndex(d => d.startnummer === String(confirmSelectedStartnummer));
+    if (confirmSelectedStartnummer == null) return;
+    let target: string | null = null;
+    if (Array.isArray(confirmSelectedStartnummer)) {
+      if (confirmSelectedStartnummer.length === 0) return;
+      target = String(confirmSelectedStartnummer[0]);
+    } else {
+      target = String(confirmSelectedStartnummer);
+    }
+    const idx = deltagere.findIndex(d => d.startnummer === target);
     if (idx >= 0) setSelectedIdx(idx);
     // clear the selection request so it won't reapply
     try { if (typeof setConfirmSelection === 'function') setConfirmSelection(null); } catch (e) {}
   }, [confirmSelectedStartnummer, deltagere, setConfirmSelection]);
+
+  // When selectedIdx changes (i.e. preselection applied), focus the select and scroll the printable area into view
+  useEffect(() => {
+    if (selectedIdx === null) return;
+    // Focus the select input so keyboard focus is visible to the user
+    try {
+      if (selectRef.current && typeof (selectRef.current as any).focus === 'function') {
+        (selectRef.current as any).focus();
+      }
+    } catch (e) { /* ignore */ }
+
+    // Scroll printable area into view shortly after render
+    setTimeout(() => {
+      try {
+        const el = printableRef.current;
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (e) { /* ignore */ }
+    }, 120);
+  }, [selectedIdx]);
 
   const handlePrint = () => {
     window.print();
@@ -45,6 +74,7 @@ const Confirmation: React.FC = () => {
           label="Velg deltager"
           value={selectedIdx ?? ''}
           onChange={e => setSelectedIdx(Number(e.target.value))}
+          inputRef={selectRef}
           fullWidth
           margin="normal"
           size="small"
@@ -63,7 +93,9 @@ const Confirmation: React.FC = () => {
 
       {/* Alt som skal med i utskrift */}
       {deltager && (
-        <DeltagerPrintView deltager={deltager} />
+        <div ref={printableRef}>
+          <DeltagerPrintView deltager={deltager} />
+        </div>
       )}
     </Box>
   );

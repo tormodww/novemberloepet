@@ -8,7 +8,6 @@ const Etapper: React.FC = () => {
   const { etapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
   const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
-  const [autoFormat, setAutoFormat] = usePersistentState<boolean>('etapper.autoFormat', false);
   const [saved, setSaved] = useState<Record<number, boolean>>({});
 
   // When etapper change externally, sync local buffer for those not being edited
@@ -22,13 +21,8 @@ const Etapper: React.FC = () => {
   }, [etapper]);
 
   const handleIdealChange = (nummer: number, value: string) => {
-    if (autoFormat) {
-      // format live but allow user to type numbers and colon
-      const formatted = formatIdealTimeInput(value);
-      setLocalIdeal(prev => ({ ...prev, [nummer]: formatted }));
-    } else {
-      setLocalIdeal(prev => ({ ...prev, [nummer]: value }));
-    }
+    // Auto-format disabled: keep raw user input in the local buffer.
+    setLocalIdeal(prev => ({ ...prev, [nummer]: value }));
   };
 
   // parse local input into minutes and seconds; return {valid, minutes, seconds, formatted}
@@ -80,10 +74,10 @@ const Etapper: React.FC = () => {
   };
 
   const isDirty = (nummer: number) => {
+    // When auto-format is off we consider the row dirty if the raw local input differs from stored value.
     const local = localIdeal[nummer] ?? '';
-    const formatted = formatIdealTimeInput(local);
     const stored = etapper.find(x => x.nummer === nummer)?.idealtid ?? '';
-    return formatted !== (stored || '');
+    return local !== (stored || '');
   };
 
   const isInvalid = (nummer: number) => {
@@ -115,7 +109,7 @@ const Etapper: React.FC = () => {
     <Box maxWidth={900} mx="auto">
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
         <Typography variant="h6">Etapper</Typography>
-        <FormControlLabel control={<Switch checked={autoFormat} onChange={(e) => setAutoFormat(e.target.checked)} />} label="Auto-format" />
+        {/* Auto-format has been disabled intentionally. Switch shown disabled so users see the option but cannot enable it. */}
         <Button variant="outlined" color="secondary" onClick={handleReset}>Tilbakestill til defaults</Button>
       </Stack>
       <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>

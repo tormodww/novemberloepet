@@ -45,7 +45,8 @@ type DeltagerContextType = {
   pendingOps: PendingOp[];
   retryOp: (id: string) => void;
   clearOp: (id: string) => void;
-  setConfirmSelection: (startnummer: string | null) => void;
+  // accepts a single startnummer string, an array of startnummer strings, or null to clear
+  setConfirmSelection: (startnummer: string | string[] | null) => void;
   navigateTo: (page: string) => void;
 };
 

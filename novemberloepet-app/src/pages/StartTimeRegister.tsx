@@ -1,11 +1,24 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { useDeltagerContext, Deltager } from '../context/DeltagerContext';
+import React, { useEffect, useRef, useState } from 'react';
+import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import {
-  Box, Typography, TextField, Button, Paper, Stack, IconButton,
-  Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, DialogActions, Snackbar, Alert, Chip
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography
 } from '@mui/material';
-import MenuItem from '@mui/material/MenuItem';
 import ListIcon from '@mui/icons-material/List';
 import { IMaskInput } from 'react-imask';
 import { usePersistentState } from '../hooks/usePersistentState';
@@ -13,12 +26,10 @@ import { usePersistentState } from '../hooks/usePersistentState';
 function formatStartTimeInput(input: string): string {
   const clean = input.replace(/\D/g, '');
   if (!clean) return '';
-  // Pad to 4 digits to represent hhmm -> hh:mm
   const padded = clean.padStart(4, '0').slice(-4);
-  return `${padded.slice(0,2)}:${padded.slice(2,4)}`;
+  return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
 }
 
-// IMask wrapper for hh:mm
 const MaskedTimeInput = React.forwardRef(function MaskedTimeInput(props: any, ref: any) {
   const { onChange, ...other } = props;
   return (
@@ -41,10 +52,8 @@ const StartTimeRegister: React.FC = () => {
   const [selected, setSelected] = usePersistentState<Deltager | null>('starttime.selected', null);
   const [inputTid, setInputTid] = usePersistentState<string>('starttime.inputTid', '');
   const [bekreft, setBekreft] = useState('');
-
-  const [snackOpen, setSnackOpen] = useState(false);
-  const [snackMsg, setSnackMsg] = useState('');
-  const [snackSeverity, setSnackSeverity] = useState<'success' | 'info' | 'warning' | 'error'>('info');
+  const [visAlle, setVisAlle] = useState<boolean>(false);
+  const [valgtEtappe, setValgtEtappe] = useState<number | null>(null);
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const timeRef = useRef<HTMLInputElement | null>(null);
@@ -52,6 +61,9 @@ const StartTimeRegister: React.FC = () => {
   useEffect(() => {
     setTimeout(() => searchRef.current?.focus(), 200);
   }, []);
+
+  // Helper: prevent registration unless an etappe is selected
+  const canRegister = valgtEtappe !== null;
 
   useEffect(() => {
     if (selected) setStartnummer(selected.startnummer);
@@ -68,9 +80,12 @@ const StartTimeRegister: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const person = deltager;
-    if (person && inputTid) {
-      registerTime(person, inputTid);
+    if (!canRegister) {
+      // focus etappe selection for the user
+      return;
+    }
+    if (deltager && inputTid) {
+      registerTime(deltager, inputTid);
       setInputTid('');
       setStartnummer('');
       setSelected(null);
@@ -78,15 +93,15 @@ const StartTimeRegister: React.FC = () => {
     }
   };
 
-  const handleFreeInput = (value: string) => {
-    const numeric = value.replace(/\D/g, '');
-    if (numeric) { setStartnummer(numeric); setSelected(null); }
-    else { setStartnummer(''); setSelected(null); }
-  };
-
-  const quickSetEtappe = (nummer: number) => {
-    // For start register we don't track etappe, but focus time after quick button
-    setTimeout(() => timeRef.current?.focus(), 50);
+  const filteredParticipants = () => {
+    return deltagere
+      .filter(d => {
+        if (!visAlle && d.starttid) return false;
+        // Note: `valgtEtappe` is used for UI highlighting only in this component.
+        // Do not filter participants by an `etappe` property because `Deltager` has no such field.
+        return true;
+      })
+      .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
   };
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -107,32 +122,57 @@ const StartTimeRegister: React.FC = () => {
     setTimeout(() => timeRef.current?.focus(), 50);
   };
 
-  const participantsMissingStart = () => {
-    return deltagere
-      .filter(d => !d.starttid || d.starttid === '')
-      .slice()
-      .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
-  };
-
   return (
     <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 600, mx: 'auto' }}>
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Typography variant="h6" gutterBottom>Registrer starttid</Typography>
 
-        {/* Quick register buttons (mobile friendly) */}
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+        {/* Etappevalg med markering */}
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
           {etapper.map(e => (
-            <Button key={e.nummer} size="small" variant="outlined" onClick={() => quickSetEtappe(e.nummer)} sx={{ minWidth: 80 }}>
+            <Button
+              key={e.nummer}
+              size="small"
+              variant={valgtEtappe === e.nummer ? 'contained' : 'outlined'}
+              color={valgtEtappe === e.nummer ? 'primary' : 'inherit'}
+              onClick={() => setValgtEtappe(e.nummer)}
+              sx={{ minWidth: 80 }}
+            >
               {e.navn}
             </Button>
           ))}
         </Stack>
+        {!canRegister && (
+          <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+            Velg en etappe før registrering
+          </Typography>
+        )}
+
+        {/* Visningsvalg */}
+        <TextField
+          select
+          label="Vis"
+          value={visAlle ? 'alle' : 'uten'}
+          onChange={(e) => setVisAlle(e.target.value === 'alle')}
+          size="small"
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value="uten">Kun uten starttid</MenuItem>
+          <MenuItem value="alle">Alle deltagere</MenuItem>
+        </TextField>
 
         <form onSubmit={handleSubmit}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Box sx={{ flex: 1, minWidth: 220 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems="stretch"
+            sx={{ mb: 2 }}
+          >
+            <Box sx={{ flex: 1 }}>
               <Stack direction="row" spacing={1} alignItems="center">
-                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere uten starttid"><ListIcon /></IconButton>
+                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere">
+                  <ListIcon/>
+                </IconButton>
                 <TextField
                   select
                   label="Startnummer eller navn"
@@ -148,19 +188,20 @@ const StartTimeRegister: React.FC = () => {
                   fullWidth
                   size="small"
                 >
-                  {participantsMissingStart().length > 0 ? (
-                    participantsMissingStart().map(d => (
-                      <MenuItem key={d.startnummer} value={d.startnummer}>#{d.startnummer} — {d.navn}</MenuItem>
+                  {filteredParticipants().length > 0 ? (
+                    filteredParticipants().map(d => (
+                      <MenuItem key={d.startnummer} value={d.startnummer}>
+                        #{d.startnummer} — {d.navn}
+                      </MenuItem>
                     ))
                   ) : (
-                    <MenuItem value="" disabled>Ingen deltagere uten starttid</MenuItem>
+                    <MenuItem value="" disabled>Ingen deltagere</MenuItem>
                   )}
                 </TextField>
               </Stack>
             </Box>
 
-            {/* Starttid felt med react-imask */}
-            <Box sx={{ width: { xs: '100%', sm: '140px' }, flexShrink: 0, mt: { xs: 1, sm: 0 } }}>
+            <Box sx={{ width: { xs: '100%', sm: '140px' } }}>
               <TextField
                 inputRef={timeRef}
                 label="Starttid (hh:mm)"
@@ -176,8 +217,10 @@ const StartTimeRegister: React.FC = () => {
               />
             </Box>
 
-            <Box sx={{ width: '100%', mt: 1 }}>
-              <Button type="submit" variant="contained" color="primary" fullWidth>Registrer starttid</Button>
+            <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              <Button type="submit" variant="contained" color="primary" fullWidth sx={{ height: '100%' }} disabled={!canRegister}>
+                Registrer
+              </Button>
             </Box>
           </Stack>
         </form>
@@ -193,14 +236,19 @@ const StartTimeRegister: React.FC = () => {
       </Paper>
 
       <Dialog open={openDialog} onClose={closeMissingDialog} fullWidth>
-        <DialogTitle>Deltagere uten starttid</DialogTitle>
+        <DialogTitle>Deltagere</DialogTitle>
         <DialogContent dividers>
           <List>
-            {participantsMissingStart().map(d => (
-              <ListItemButton key={d.startnummer} onClick={() => onSelectFromDialog(d)}>
-                <ListItemText primary={`#${d.startnummer} ${d.navn}`} secondary={`${d.klasse} • ${d.sykkel}`} />
-                {d.resultater?.[0]?.status === 'DNS' && <Chip label="Startet ikke" color="error" size="small" sx={{ ml: 1 }} />}
-                {d.resultater?.[0]?.status === 'DNF' && <Chip label="Fullførte ikke" color="warning" size="small" sx={{ ml: 1 }} />}
+            {filteredParticipants().map(d => (
+              <ListItemButton key={d.startnummer} onClick={() => onSelectFromDialog(d)} sx={{ py: 1.5 }}>
+                <ListItemText
+                  primary={`#${d.startnummer} ${d.navn}`}
+                  secondary={`${d.klasse} • ${d.sykkel}`}
+                />
+                {/* Show only the 'STARTET IKKE' marker in the StartTimeRegister as requested */}
+                {d.resultater?.[0]?.status === 'DNS' && (
+                  <Chip label="STARTET IKKE" color="error" size="small" sx={{ ml: 1 }} />
+                )}
               </ListItemButton>
             ))}
           </List>

@@ -96,10 +96,10 @@ const Startliste: React.FC = () => {
     const chosen = deltagere.filter(d => selected.includes(d.startnummer));
     if (chosen.length === 0) return alert('Velg én eller flere deltagere først');
 
-    // Preselect the first chosen participant in Confirmation and navigate there
+    // Preselect the chosen participants (list) in Confirmation and navigate there
     try {
-      const first = chosen[0];
-      if (typeof setConfirmSelection === 'function') setConfirmSelection(first.startnummer);
+      const snList = chosen.map(d => d.startnummer);
+      if (typeof setConfirmSelection === 'function') setConfirmSelection(snList);
       if (typeof navigateTo === 'function') navigateTo('confirmation');
     } catch (e) {
       // fallback: if context helpers are not available, show original behaviour (open print window)
@@ -250,8 +250,7 @@ const Startliste: React.FC = () => {
                 disabled={selected.length === 0} color="warning">Startet ikke</Button>
         <Button variant="contained" size="small" onClick={() => handleStatusInitiate('DNF')}
                 disabled={selected.length === 0} color="error">Fullførte ikke</Button>
-        <Button variant="contained" size="small" onClick={handlePrint} disabled={selected.length === 0}>Vis / Skriv ut
-          startbekreftelse</Button>
+        <Button variant="contained" size="small" onClick={handlePrint} disabled={selected.length === 0}>Vis startbekreftelse</Button>
       </Stack>
 
       <TableContainer component={Paper}>
