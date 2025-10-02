@@ -143,8 +143,13 @@ const FinishTimeRegister: React.FC = () => {
   if (step === 2 && etappe !== null) {
     const isDNS = existingEtappeStatus === 'DNS';
     const isDNF = existingEtappeStatus === 'DNF';
+    const valgtEtappeObj = etapper.find(e => e.nummer === etappe);
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
+        {/* Ny etappe-header */}
+        <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+          Etappe {etappe}{valgtEtappeObj?.navn ? `: ${valgtEtappeObj.navn}` : ''}
+        </Typography>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
         <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); clear(); resetManual(); }}>Bytt etappe</Button>
         <Autocomplete

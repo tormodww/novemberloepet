@@ -128,6 +128,15 @@ const StartTimeRegister: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe]);
 
+  // Self-heal persisted invalid state: if step=2 but no valgtEtappe, or step is outside expected range
+  useEffect(() => {
+    if ((step === 2 && valgtEtappe == null) || (step !== 1 && step !== 2)) {
+      setStep(1);
+      setValgtDeltager(null);
+      setShowManual(false);
+    }
+  }, [step, valgtEtappe, setStep]);
+
   // Steg 1: Etappevalg
   if (step === 1) {
     return (
@@ -155,9 +164,12 @@ const StartTimeRegister: React.FC = () => {
   if (step === 2 && valgtEtappe !== null) {
     const isDNS = existingEtappeStatus === 'DNS';
     const isDNF = existingEtappeStatus === 'DNF';
+    const valgtEtappeObj = etapper.find(e => e.nummer === valgtEtappe);
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>{etapper.find(e => e.nummer === valgtEtappe)?.navn}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+          Etappe {valgtEtappe}{valgtEtappeObj?.navn ? `: ${valgtEtappeObj.navn}` : ''}
+        </Typography>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
         <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); }}>Bytt etappe</Button>
         <Autocomplete
@@ -288,7 +300,26 @@ const StartTimeRegister: React.FC = () => {
     );
   }
 
-  return null;
+  // Fallback: if state got reset mid-render (should rarely happen) show etappevalg instead of blank
+  return (
+    <Box sx={{ p: 2, maxWidth: 400, mx: 'auto' }}>
+      <Typography variant="h6" gutterBottom>Velg etappe</Typography>
+      <Stack spacing={2}>
+        {etapper.map(e => (
+          <Button
+            key={e.nummer}
+            variant="contained"
+            size="large"
+            color={valgtEtappe === e.nummer ? 'primary' : 'inherit'}
+            sx={{ py: 2, fontSize: 20 }}
+            onClick={() => { setValgtEtappe(e.nummer); setStep(2); setValgtDeltager(null); }}
+          >
+            {e.navn}
+          </Button>
+        ))}
+      </Stack>
+    </Box>
+  );
 };
 
 export default StartTimeRegister;
