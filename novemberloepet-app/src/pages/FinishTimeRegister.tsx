@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, TextField, Button, Stack, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, TextField, Button, Stack, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions, Chip } from '@mui/material';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 
@@ -141,6 +141,8 @@ const FinishTimeRegister: React.FC = () => {
 
   // Steg 2: Deltager & handlinger
   if (step === 2 && etappe !== null) {
+    const isDNS = existingEtappeStatus === 'DNS';
+    const isDNF = existingEtappeStatus === 'DNF';
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
@@ -150,6 +152,17 @@ const FinishTimeRegister: React.FC = () => {
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
           value={valgtDeltager}
           onChange={(_, ny) => { setValgtDeltager(ny); clear(); resetManual(); }}
+          renderOption={(props, option) => {
+            const status = etappe != null ? option.resultater?.[etappe - 1]?.status : undefined;
+            let chip: React.ReactNode = null;
+            if (status === 'DNS') chip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
+            else if (status === 'DNF') chip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            return (
+              <li {...props} key={option.startnummer} style={{ display: 'flex', alignItems: 'center' }}>
+                <span>#{option.startnummer} {option.navn}</span>{chip}
+              </li>
+            );
+          }}
           renderInput={params => (
             <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth />
           )}
@@ -176,21 +189,48 @@ const FinishTimeRegister: React.FC = () => {
             </Button>
             <Button
               variant="contained"
-              color="error"
+              color={isDNS ? 'warning' : 'error'}
               size="large"
               sx={{ py: 2, fontSize: 20 }}
-              onClick={() => registerStatus('DNS')}
+              onClick={() => {
+                if (!valgtDeltager || etappe == null) return;
+                if (isDNS) {
+                  setEtappeStatus(valgtDeltager.startnummer, etappe, 'NONE');
+                  showMessage(`DNS fjernet for #${valgtDeltager.startnummer}`);
+                } else {
+                  setEtappeStatus(valgtDeltager.startnummer, etappe, 'DNS');
+                  showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+                }
+                resetManual();
+              }}
             >
-              Sett DNS
+              {isDNS ? 'Fjern DNS' : 'Sett DNS'}
             </Button>
             <Button
               variant="contained"
-              color="warning"
+              color={isDNF ? 'warning' : 'secondary'}
               size="large"
               sx={{ py: 2, fontSize: 20 }}
-              onClick={() => registerStatus('DNF')}
+              onClick={() => {
+                if (!valgtDeltager || etappe == null) return;
+                if (isDNF) {
+                  // Fjern DNF og behold maltid tom
+                  setEtappeStatus(valgtDeltager.startnummer, etappe, 'NONE');
+                  showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
+                } else {
+                  // Sett DNF og null ut sluttid for konsistens (regelvalg: DNF = ingen sluttid)
+                  const ETAPPER = etapper.length;
+                  const nye: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => valgtDeltager.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+                  const idx = etappe - 1;
+                  nye[idx] = { ...nye[idx], maltid: '' };
+                  editDeltager(valgtDeltager.navn, { resultater: nye });
+                  setEtappeStatus(valgtDeltager.startnummer, etappe, 'DNF');
+                  showMessage(`DNF registrert for #${valgtDeltager.startnummer}`);
+                }
+                resetManual();
+              }}
             >
-              Sett DNF
+              {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
             <Button
               variant="outlined"

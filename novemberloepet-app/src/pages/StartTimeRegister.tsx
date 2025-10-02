@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Button, Stack, TextField, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Button, Stack, TextField, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions, Chip } from '@mui/material';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
-import { EtappeResultat } from '../context/DeltagerContext';
+import { formatManualStart } from '../lib/timeFormat';
+import type { EtappeResultat } from '../context/DeltagerContext';
 
 const StartTimeRegister: React.FC = () => {
   const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
@@ -24,6 +25,12 @@ const StartTimeRegister: React.FC = () => {
     if (valgtEtappe == null || !valgtDeltager) return '';
     const res = valgtDeltager.resultater?.[valgtEtappe - 1];
     return res?.starttid || '';
+  })();
+
+  const existingEtappeStatus = (() => {
+    if (valgtEtappe == null || !valgtDeltager) return '';
+    const res = valgtDeltager.resultater?.[valgtEtappe - 1];
+    return res?.status || '';
   })();
 
   const storeStartTime = (d: Deltager, time: string) => {
@@ -57,17 +64,15 @@ const StartTimeRegister: React.FC = () => {
 
   const saveManual = () => {
     if (!valgtDeltager) return;
-    const digits = manualInput.replace(/\D/g, '').slice(0,4);
-    if (digits.length < 3) return;
-    const padded = digits.padStart(4,'0');
-    const time = `${padded.slice(0,2)}:${padded.slice(2,4)}`;
+    const formatted = formatManualStart(manualInput);
+    if (!formatted) return;
     if (existingEtappeStart) {
       setPendingAction('MANUAL');
       setConfirmOverrideOpen(true);
       return;
     }
-    storeStartTime(valgtDeltager, time);
-    showMessage(`Starttid ${time} registrert for #${valgtDeltager.startnummer}`);
+    storeStartTime(valgtDeltager, formatted);
+    showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     setManualInput(''); setShowManual(false);
   };
 
@@ -81,11 +86,12 @@ const StartTimeRegister: React.FC = () => {
       storeStartTime(valgtDeltager, tid);
       showMessage(`Starttid oppdatert til ${tid}`);
     } else if (pendingAction === 'MANUAL') {
-      const digits = manualInput.replace(/\D/g, '').slice(0,4).padStart(4,'0');
-      const t = `${digits.slice(0,2)}:${digits.slice(2,4)}`;
-      storeStartTime(valgtDeltager, t);
-      showMessage(`Starttid oppdatert til ${t}`);
-      setManualInput(''); setShowManual(false);
+      const formatted = formatManualStart(manualInput);
+      if (formatted) {
+        storeStartTime(valgtDeltager, formatted);
+        showMessage(`Starttid oppdatert til ${formatted}`);
+        setManualInput(''); setShowManual(false);
+      }
     }
     setPendingAction(null);
     setConfirmOverrideOpen(false);
@@ -147,15 +153,29 @@ const StartTimeRegister: React.FC = () => {
 
   // Steg 2: Velg deltager og registrer starttid/DNS
   if (step === 2 && valgtEtappe !== null) {
+    const isDNS = existingEtappeStatus === 'DNS';
+    const isDNF = existingEtappeStatus === 'DNF';
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>{etapper.find(e => e.nummer === valgtEtappe)?.navn}</Typography>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
         <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); }}>Bytt etappe</Button>
         <Autocomplete
           options={deltagere.filter(d => !!d.startnummer)}
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
-            value={valgtDeltager}
+          value={valgtDeltager}
           onChange={(_, ny) => { setValgtDeltager(ny); }}
+          renderOption={(props, option) => {
+            const status = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.status : undefined;
+            let chip: React.ReactNode = null;
+            if (status === 'DNS') chip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
+            else if (status === 'DNF') chip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            return (
+              <li {...props} key={option.startnummer} style={{ display: 'flex', alignItems: 'center' }}>
+                <span>#{option.startnummer} {option.navn}</span>{chip}
+              </li>
+            );
+          }}
           renderInput={params => (
             <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth />
           )}
@@ -168,6 +188,9 @@ const StartTimeRegister: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               {existingEtappeStart ? `Eksisterende starttid (etappe): ${existingEtappeStart}` : 'Ingen starttid registrert for etappen'}
             </Typography>
+            {existingEtappeStatus && existingEtappeStatus !== 'NONE' && (
+              <Typography variant="body2" color="text.secondary">Status: {existingEtappeStatus}</Typography>
+            )}
             <Button
               variant="contained"
               color="primary"
@@ -179,11 +202,15 @@ const StartTimeRegister: React.FC = () => {
             </Button>
             <Button
               variant="contained"
-              color="error"
+              color={isDNS ? 'warning' : 'error'}
               size="large"
               sx={{ py: 2, fontSize: 20 }}
               onClick={() => {
-                if (valgtEtappe !== null) {
+                if (!valgtDeltager || valgtEtappe == null) return;
+                if (isDNS) {
+                  setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'NONE');
+                  showMessage(`DNS fjernet for #${valgtDeltager.startnummer}`);
+                } else {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
                   editDeltager(valgtDeltager.navn, { starttid: '' });
                   showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
@@ -191,7 +218,27 @@ const StartTimeRegister: React.FC = () => {
                 }
               }}
             >
-              Sett DNS
+              {isDNS ? 'Fjern DNS' : 'Sett DNS'}
+            </Button>
+            <Button
+              variant="contained"
+              color={isDNF ? 'warning' : 'secondary'}
+              size="large"
+              sx={{ py: 2, fontSize: 20 }}
+              onClick={() => {
+                if (!valgtDeltager || valgtEtappe == null) return;
+                if (isDNF) {
+                  setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'NONE');
+                  showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
+                } else {
+                  setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNF');
+                  editDeltager(valgtDeltager.navn, { starttid: '' });
+                  showMessage(`DNF registrert for #${valgtDeltager.startnummer}`);
+                  setShowManual(false); setManualInput('');
+                }
+              }}
+            >
+              {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
             <Button
               variant="outlined"
