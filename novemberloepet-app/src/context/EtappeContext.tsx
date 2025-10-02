@@ -31,6 +31,9 @@ type EtappeContextType = {
   updateIdealtid: (nummer: number, idealtid: string) => void;
   formatIdealTimeInput: (input: string) => string;
   resetEtapper: () => void;
+  loadingEtapper: boolean;
+  etapperError: string | null;
+  reloadEtapper: () => Promise<boolean>; // endret fra Promise<void>
 };
 
 const EtappeContext = createContext<EtappeContextType | undefined>(undefined);
@@ -51,32 +54,59 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return defaultEtapper;
   });
   const [remoteId, setRemoteId] = useState<string | null>(null);
+  const [loadingEtapper, setLoadingEtapper] = useState<boolean>(false);
+  const [etapperError, setEtapperError] = useState<string | null>(null);
+
+  const loadFromProxy = async (attempt = 1): Promise<boolean> => {
+    setLoadingEtapper(true);
+    setEtapperError(null);
+    try {
+      const json = await fetchEtapper();
+      if (json && typeof json === 'object' && 'etapper' in json && Array.isArray((json as any).etapper)) {
+        const list = (json as any).etapper as Etappe[];
+        setEtapper(list);
+        setRemoteId(((json as any).objectId || (json as any).id) ?? null);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+        setLoadingEtapper(false);
+        return true;
+      }
+      if (Array.isArray(json)) {
+        setEtapper(json as Etappe[]);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(json)); } catch {}
+        setLoadingEtapper(false);
+        return true;
+      }
+      throw new Error('Ukjent responsformat fra /api/etapper');
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      if (attempt < 3) {
+        // enkel eksponentiell backoff
+        const backoff = 300 * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, backoff));
+        return loadFromProxy(attempt + 1);
+      }
+      console.warn('Failed to load etapper from proxy, falling back to local', e);
+      setEtapperError(msg);
+      setLoadingEtapper(false);
+      return false;
+    }
+  };
+
+  const reloadEtapper = async (): Promise<boolean> => {
+    return loadFromProxy(1);
+  };
 
   // Load from proxy on mount
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
-      try {
-        const json = await fetchEtapper();
-        // if proxy returned object with etapper array
-        if (json && typeof json === 'object' && 'etapper' in json && Array.isArray(json.etapper) && mounted) {
-          setEtapper(json.etapper as Etappe[]);
-          setRemoteId((json.objectId || json.id) ?? null);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(json.etapper));
-          return;
-        }
-        // if proxy returned array directly
-        if (Array.isArray(json) && json.length && mounted) {
-          setEtapper(json as Etappe[]);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
-          return;
-        }
-      } catch (e) {
-        console.warn('Failed to load etapper from proxy, falling back to local', e);
+    (async () => {
+      const ok = await loadFromProxy(1);
+      if (!ok && mounted) {
+        // Already have local fallback loaded via initial state.
       }
-    };
-    load();
+    })();
     return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // sync to localStorage whenever etapper changes
@@ -122,7 +152,17 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   return (
-    <EtappeContext.Provider value={{ etapper: etapper as Etappe[], setEtapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper }}>
+    <EtappeContext.Provider value={{
+      etapper: etapper as Etappe[],
+      setEtapper,
+      updateEtappenavn,
+      updateIdealtid,
+      formatIdealTimeInput,
+      resetEtapper,
+      loadingEtapper,
+      etapperError: etapperError, // eksplisitt union
+      reloadEtapper
+    }}>
       {children}
     </EtappeContext.Provider>
   );

@@ -1,264 +1,247 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemText,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography
-} from '@mui/material';
-import ListIcon from '@mui/icons-material/List';
-import { IMaskInput } from 'react-imask';
+import { Box, Button, Stack, TextField, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { usePersistentState } from '../hooks/usePersistentState';
-
-function formatStartTimeInput(input: string): string {
-  const clean = input.replace(/\D/g, '');
-  if (!clean) return '';
-  const padded = clean.padStart(4, '0').slice(-4);
-  return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
-}
-
-const MaskedTimeInput = React.forwardRef(function MaskedTimeInput(props: any, ref: any) {
-  const { onChange, ...other } = props;
-  return (
-    <IMaskInput
-      {...other}
-      mask="00:00"
-      inputRef={ref}
-      overwrite
-      onAccept={(value: any) => {
-        if (onChange) onChange({ target: { value } });
-      }}
-    />
-  );
-});
+import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
+import { EtappeResultat } from '../context/DeltagerContext';
 
 const StartTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
   const { etapper } = useEtappeContext();
-  const [startnummer, setStartnummer] = usePersistentState<string>('starttime.startnummer', '');
-  const [selected, setSelected] = usePersistentState<Deltager | null>('starttime.selected', null);
-  const [inputTid, setInputTid] = usePersistentState<string>('starttime.inputTid', '');
-  const [bekreft, setBekreft] = useState('');
-  const [visAlle, setVisAlle] = useState<boolean>(false);
-  const [valgtEtappe, setValgtEtappe] = useState<number | null>(null);
 
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  const timeRef = useRef<HTMLInputElement | null>(null);
+  // Veiviser steg og valgt etappe/deltager
+  const [step, setStep] = usePersistentState<number>('starttime.step', 1);
+  const [valgtEtappe, setValgtEtappe] = usePersistentState<number | null>('starttime.etappe', null);
+  const [valgtDeltager, setValgtDeltager] = useState<Deltager | null>(null);
+  const { message, showMessage, clear } = useEphemeralMessage(3500);
+  const [showManual, setShowManual] = useState(false);
+  const [manualInput, setManualInput] = useState('');
+  const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
 
-  useEffect(() => {
-    setTimeout(() => searchRef.current?.focus(), 200);
-  }, []);
+  const existingEtappeStart = (() => {
+    if (valgtEtappe == null || !valgtDeltager) return '';
+    const res = valgtDeltager.resultater?.[valgtEtappe - 1];
+    return res?.starttid || '';
+  })();
 
-  // Helper: prevent registration unless an etappe is selected
-  const canRegister = valgtEtappe !== null;
-
-  useEffect(() => {
-    if (selected) setStartnummer(selected.startnummer);
-  }, [selected]);
-
-  const deltager = deltagere.find(d => d.startnummer === startnummer) || selected;
-
-  const registerTime = (person: Deltager, rawInput: string) => {
-    if (!person) return;
-    const tid = formatStartTimeInput(rawInput);
-    editDeltager(person.navn, { starttid: tid });
-    setBekreft(`#${person.startnummer} ${person.navn}: ${tid}`);
+  const storeStartTime = (d: Deltager, time: string) => {
+    // Oppdater toppnivå starttid hvis ingen eller annen
+    // Samtidig sett per-etappe starttid i resultater
+    const ETAPPER = etapper.length;
+    const nye: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+    if (valgtEtappe != null) {
+      const idx = valgtEtappe - 1;
+      nye[idx] = { ...nye[idx], starttid: time };
+    }
+    editDeltager(d.navn, { starttid: time, resultater: nye });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canRegister) {
-      // focus etappe selection for the user
+  const registerNow = () => {
+    if (!valgtDeltager) return;
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const tid = `${hh}:${mm}`;
+    // Sjekk override
+    if (existingEtappeStart) {
+      setPendingAction('NOW');
+      setConfirmOverrideOpen(true);
       return;
     }
-    if (deltager && inputTid) {
-      registerTime(deltager, inputTid);
-      setInputTid('');
-      setStartnummer('');
-      setSelected(null);
-      setTimeout(() => searchRef.current?.focus(), 100);
+    storeStartTime(valgtDeltager, tid);
+    showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
+    setShowManual(false); setManualInput('');
+  };
+
+  const saveManual = () => {
+    if (!valgtDeltager) return;
+    const digits = manualInput.replace(/\D/g, '').slice(0,4);
+    if (digits.length < 3) return;
+    const padded = digits.padStart(4,'0');
+    const time = `${padded.slice(0,2)}:${padded.slice(2,4)}`;
+    if (existingEtappeStart) {
+      setPendingAction('MANUAL');
+      setConfirmOverrideOpen(true);
+      return;
     }
+    storeStartTime(valgtDeltager, time);
+    showMessage(`Starttid ${time} registrert for #${valgtDeltager.startnummer}`);
+    setManualInput(''); setShowManual(false);
   };
 
-  const filteredParticipants = () => {
-    return deltagere
-      .filter(d => {
-        if (!visAlle && d.starttid) return false;
-        // Note: `valgtEtappe` is used for UI highlighting only in this component.
-        // Do not filter participants by an `etappe` property because `Deltager` has no such field.
-        return true;
-      })
-      .sort((a, b) => (parseInt(a.startnummer as any, 10) || 0) - (parseInt(b.startnummer as any, 10) || 0));
+  const confirmOverride = () => {
+    if (!valgtDeltager || !pendingAction) { setConfirmOverrideOpen(false); return; }
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    if (pendingAction === 'NOW') {
+      const tid = `${hh}:${mm}`;
+      storeStartTime(valgtDeltager, tid);
+      showMessage(`Starttid oppdatert til ${tid}`);
+    } else if (pendingAction === 'MANUAL') {
+      const digits = manualInput.replace(/\D/g, '').slice(0,4).padStart(4,'0');
+      const t = `${digits.slice(0,2)}:${digits.slice(2,4)}`;
+      storeStartTime(valgtDeltager, t);
+      showMessage(`Starttid oppdatert til ${t}`);
+      setManualInput(''); setShowManual(false);
+    }
+    setPendingAction(null);
+    setConfirmOverrideOpen(false);
   };
 
-  const [openDialog, setOpenDialog] = useState(false);
-
-  const openMissingDialog = () => {
-    try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
-    setOpenDialog(true);
+  const cancelOverride = () => {
+    setPendingAction(null);
+    setConfirmOverrideOpen(false);
   };
 
-  const closeMissingDialog = () => {
-    setOpenDialog(false);
-  };
+  // Tastatursnarveier
+  useEffect(() => {
+    if (step !== 2 || !valgtDeltager) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !confirmOverrideOpen) {
+        if (showManual) {
+          saveManual();
+        } else {
+          registerNow();
+        }
+      } else if (e.key.toLowerCase() === 'm') {
+        setShowManual(s => !s);
+      } else if (e.key.toLowerCase() === 'd') {
+        if (valgtEtappe != null) {
+          setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
+          editDeltager(valgtDeltager.navn, { starttid: '' });
+          showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+        }
+      } else if (e.key === 'Escape') {
+        if (showManual) { setShowManual(false); setManualInput(''); }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe]);
 
-  const onSelectFromDialog = (d: Deltager) => {
-    setSelected(d);
-    setStartnummer(d.startnummer);
-    closeMissingDialog();
-    setTimeout(() => timeRef.current?.focus(), 50);
-  };
-
-  return (
-    <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 600, mx: 'auto' }}>
-      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-        <Typography variant="h6" gutterBottom>Registrer starttid</Typography>
-
-        {/* Etappevalg med markering */}
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+  // Steg 1: Etappevalg
+  if (step === 1) {
+    return (
+      <Box sx={{ p: 2, maxWidth: 400, mx: 'auto' }}>
+        <Typography variant="h6" gutterBottom>Velg etappe</Typography>
+        <Stack spacing={2}>
           {etapper.map(e => (
             <Button
               key={e.nummer}
-              size="small"
-              variant={valgtEtappe === e.nummer ? 'contained' : 'outlined'}
+              variant="contained"
+              size="large"
               color={valgtEtappe === e.nummer ? 'primary' : 'inherit'}
-              onClick={() => setValgtEtappe(e.nummer)}
-              sx={{ minWidth: 80 }}
+              sx={{ py: 2, fontSize: 20 }}
+              onClick={() => { setValgtEtappe(e.nummer); setStep(2); setValgtDeltager(null); }}
             >
               {e.navn}
             </Button>
           ))}
         </Stack>
-        {!canRegister && (
-          <Typography variant="body2" color="error" sx={{ mb: 1 }}>
-            Velg en etappe før registrering
-          </Typography>
-        )}
+      </Box>
+    );
+  }
 
-        {/* Visningsvalg */}
-        <TextField
-          select
-          label="Vis"
-          value={visAlle ? 'alle' : 'uten'}
-          onChange={(e) => setVisAlle(e.target.value === 'alle')}
-          size="small"
-          sx={{ mb: 2 }}
-        >
-          <MenuItem value="uten">Kun uten starttid</MenuItem>
-          <MenuItem value="alle">Alle deltagere</MenuItem>
-        </TextField>
-
-        <form onSubmit={handleSubmit}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            alignItems="stretch"
-            sx={{ mb: 2 }}
-          >
-            <Box sx={{ flex: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <IconButton size="small" onClick={openMissingDialog} aria-label="Vis deltagere">
-                  <ListIcon/>
-                </IconButton>
+  // Steg 2: Velg deltager og registrer starttid/DNS
+  if (step === 2 && valgtEtappe !== null) {
+    return (
+      <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
+        <Typography variant="h6" gutterBottom>Velg deltager</Typography>
+        <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); }}>Bytt etappe</Button>
+        <Autocomplete
+          options={deltagere.filter(d => !!d.startnummer)}
+          getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
+            value={valgtDeltager}
+          onChange={(_, ny) => { setValgtDeltager(ny); }}
+          renderInput={params => (
+            <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth />
+          )}
+          sx={{ mb: 3 }}
+          isOptionEqualToValue={(opt, val) => opt.startnummer === val?.startnummer}
+        />
+        {valgtDeltager && (
+          <Stack spacing={2}>
+            <Typography variant="subtitle1">#{valgtDeltager.startnummer} {valgtDeltager.navn}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {existingEtappeStart ? `Eksisterende starttid (etappe): ${existingEtappeStart}` : 'Ingen starttid registrert for etappen'}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              sx={{ py: 2, fontSize: 20 }}
+              onClick={registerNow}
+            >
+              {existingEtappeStart ? 'Overskriv starttid = nå' : 'Registrer starttid = nå'}
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              size="large"
+              sx={{ py: 2, fontSize: 20 }}
+              onClick={() => {
+                if (valgtEtappe !== null) {
+                  setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
+                  editDeltager(valgtDeltager.navn, { starttid: '' });
+                  showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+                  setShowManual(false); setManualInput('');
+                }
+              }}
+            >
+              Sett DNS
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              sx={{ py: 1.5, fontSize: 18 }}
+              onClick={() => { setShowManual(s => !s); if(showManual){ setManualInput(''); } }}
+            >
+              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
+            </Button>
+            {showManual && (
+              <Stack spacing={1}>
                 <TextField
-                  select
-                  label="Startnummer eller navn"
-                  inputRef={searchRef}
-                  value={startnummer}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const sel = deltagere.find(d => d.startnummer === val) || null;
-                    setStartnummer(val);
-                    setSelected(sel);
-                    setTimeout(() => timeRef.current?.focus(), 50);
-                  }}
-                  fullWidth
-                  size="small"
-                >
-                  {filteredParticipants().length > 0 ? (
-                    filteredParticipants().map(d => (
-                      <MenuItem key={d.startnummer} value={d.startnummer}>
-                        #{d.startnummer} — {d.navn}
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem value="" disabled>Ingen deltagere</MenuItem>
-                  )}
-                </TextField>
-              </Stack>
-            </Box>
-
-            <Box sx={{ width: { xs: '100%', sm: '140px' } }}>
-              <TextField
-                inputRef={timeRef}
-                label="Starttid (hh:mm)"
-                placeholder="hh:mm"
-                value={inputTid}
-                onChange={e => setInputTid(e.target.value)}
-                fullWidth
-                size="small"
-                InputProps={{
-                  inputComponent: MaskedTimeInput as any,
-                  inputMode: 'numeric'
-                }}
-              />
-            </Box>
-
-            <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
-              <Button type="submit" variant="contained" color="primary" fullWidth sx={{ height: '100%' }} disabled={!canRegister}>
-                Registrer
-              </Button>
-            </Box>
-          </Stack>
-        </form>
-
-        {deltager && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2">#{deltager.startnummer} {deltager.navn}</Typography>
-            <Typography variant="body2">Nåværende starttid: {deltager.starttid || 'Ikke satt'}</Typography>
-          </Box>
-        )}
-
-        {bekreft && <Typography color="success.main" sx={{ mt: 1 }}>{bekreft} lagret!</Typography>}
-      </Paper>
-
-      <Dialog open={openDialog} onClose={closeMissingDialog} fullWidth>
-        <DialogTitle>Deltagere</DialogTitle>
-        <DialogContent dividers>
-          <List>
-            {filteredParticipants().map(d => (
-              <ListItemButton key={d.startnummer} onClick={() => onSelectFromDialog(d)} sx={{ py: 1.5 }}>
-                <ListItemText
-                  primary={`#${d.startnummer} ${d.navn}`}
-                  secondary={`${d.klasse} • ${d.sykkel}`}
+                  label="Manuell starttid (hhmm)"
+                  helperText="Skriv f.eks 0932 for 09:32"
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  inputMode="numeric"
                 />
-                {/* Show only the 'STARTET IKKE' marker in the StartTimeRegister as requested */}
-                {d.resultater?.[0]?.status === 'DNS' && (
-                  <Chip label="STARTET IKKE" color="error" size="small" sx={{ ml: 1 }} />
-                )}
-              </ListItemButton>
-            ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeMissingDialog}>Lukk</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
+                <Button
+                  variant="contained"
+                  disabled={manualInput.replace(/\D/g,'').length < 3}
+                  onClick={saveManual}
+                >Lagre manuell tid</Button>
+              </Stack>
+            )}
+            {message && <Typography color="success.main">{message}</Typography>}
+            <Button
+              variant="text"
+              onClick={() => { setValgtDeltager(null); clear(); setShowManual(false); setManualInput(''); }}
+              sx={{ mt: 1 }}
+            >
+              Registrer en annen deltager
+            </Button>
+          </Stack>
+        )}
+        <Dialog open={confirmOverrideOpen} onClose={cancelOverride}>
+          <DialogTitle>Overskriv eksisterende starttid?</DialogTitle>
+          <DialogContent>
+            <Typography>Det finnes allerede en starttid for denne etappen ({existingEtappeStart}). Vil du overskrive den?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={cancelOverride}>Avbryt</Button>
+            <Button variant="contained" onClick={confirmOverride}>Overskriv</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
+  return null;
 };
 
 export default StartTimeRegister;
