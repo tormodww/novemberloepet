@@ -1,4 +1,5 @@
-import { test, expect } from 'vitest';
+import { expect,test } from 'vitest';
+
 import { computeBackoff, nextAttemptAt, shouldAttempt } from '../src/lib/opQueue';
 
 test('opQueue computeBackoff/nextAttemptAt/shouldAttempt behavior', () => {

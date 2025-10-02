@@ -1,5 +1,5 @@
+import { apiDelete,apiGet, apiPost, apiPut } from './apiClient';
 import type { Etappe } from './types';
-import { apiGet, apiPost, apiPut, apiDelete } from './apiClient';
 
 export type RemoteEtappeConfig = { etapper: Etappe[]; objectId?: string; id?: string };
 

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { TextField, Button, Box, MenuItem, Typography, Alert } from '@mui/material';
-import { useDeltagerContext } from '../context/DeltagerContext';
-import type { Deltager } from '../api/types';
-import { usePersistentState } from '../hooks/usePersistentState';
+import { Alert,Box, Button, MenuItem, TextField, Typography } from '@mui/material';
+import React, { useEffect,useState } from 'react';
+
 import { createDeltagere } from '../api/deltagere';
+import type { Deltager } from '../api/types';
+import { useDeltagerContext } from '../context/DeltagerContext';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 const classes = [
   'Oldtimer',
@@ -73,7 +74,8 @@ const Registration: React.FC = () => {
     // Accept +47 or national, digits, spaces, hyphens; at least 6 digits
     const digits = tel.replace(/[^0-9]/g, '');
     if (digits.length < 6) return 'Telefonnummer for kort';
-    const re = /^\+?[0-9 \-]+$/;
+    // Fjernet unødvendig escape av '-'
+    const re = /^\+?[0-9 -]+$/;
     return re.test(tel) ? '' : 'Ugyldig telefonnummer';
   };
 

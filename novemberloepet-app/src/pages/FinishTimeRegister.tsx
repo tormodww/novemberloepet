@@ -1,9 +1,10 @@
+import { Autocomplete, Box, Button, Chip,Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import React, { useState } from 'react';
-import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
+
+import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, TextField, Button, Stack, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions, Chip } from '@mui/material';
-import { usePersistentState } from '../hooks/usePersistentState';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 // Formatterer manuell målgangstid fra rå tall (mmss eller hhmmss) til mm:ss eller hh:mm:ss
 function formatManualFinish(raw: string): string | null {

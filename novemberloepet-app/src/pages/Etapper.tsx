@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, IconButton, Button, FormControlLabel, Switch, Stack } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import { Box, Button, FormControlLabel, IconButton, Paper, Stack,Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+
+import { useEtappeContext } from '../context/EtappeContext';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {

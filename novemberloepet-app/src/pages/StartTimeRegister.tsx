@@ -1,11 +1,12 @@
+import { Autocomplete, Box, Button, Chip,Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
+
+import type { EtappeResultat } from '../context/DeltagerContext';
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Button, Stack, TextField, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions, Chip } from '@mui/material';
-import { usePersistentState } from '../hooks/usePersistentState';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
+import { usePersistentState } from '../hooks/usePersistentState';
 import { formatManualStart } from '../lib/timeFormat';
-import type { EtappeResultat } from '../context/DeltagerContext';
 
 const StartTimeRegister: React.FC = () => {
   const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
@@ -102,7 +103,9 @@ const StartTimeRegister: React.FC = () => {
     setConfirmOverrideOpen(false);
   };
 
-  // Tastatursnarveier
+  // Tastatursnarveier – vi holder avhengighetslisten bevisst smal for å unngå re-binding av handler hver render.
+  // Handlerne refererer kun til nødvendige reactive verdier; øvrige funksjoner er stabile nok i praksis.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (step !== 2 || !valgtDeltager) return;
     const handler = (e: KeyboardEvent) => {

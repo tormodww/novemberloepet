@@ -10,7 +10,7 @@ if (appId && jsKey && serverURL) {
   Parse.serverURL = serverURL;
 } else {
   // If not configured, we still export Parse but operations will likely fail — contexts should fallback
-  // eslint-disable-next-line no-console
+   
   console.warn('Parse env vars not set. Back4App persistence disabled.');
 }
 

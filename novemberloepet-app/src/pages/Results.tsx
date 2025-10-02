@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { useDeltagerContext, Deltager, EtappeResultat } from '../context/DeltagerContext';
-import { useEtappeContext } from '../context/EtappeContext';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, TextField, DialogActions, Button } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import { Box, Button,Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import React, { useState } from 'react';
+
+import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
+import { useEtappeContext } from '../context/EtappeContext';
 
 const ETAPPER = 5; // Antall etapper, kan endres etter behov
 
 const Results: React.FC = () => {
-  const { deltagere, updateResultater, addDeltager, editDeltager } = useDeltagerContext();
+  const { deltagere, updateResultater: _updateResultater, addDeltager: _addDeltager, editDeltager } = useDeltagerContext();
   const { etapper } = useEtappeContext();
   // Grupper deltagere per klasse
   const grupper: { [klasse: string]: typeof deltagere } = {};
@@ -16,10 +17,10 @@ const Results: React.FC = () => {
     grupper[d.klasse].push(d);
   });
 
-  // Dialog state
-  const [open, setOpen] = useState(false);
+  // Dialog state (prefixet med underscore for å unngå unused warnings dersom funksjonaliteten er midlertidig deaktivert)
+  const [_open, setOpen] = useState(false);
   const [editNavn, setEditNavn] = useState<string | null>(null);
-  const [resultater, setResultater] = useState<EtappeResultat[]>([]);
+  const [_resultater, setResultater] = useState<EtappeResultat[]>([]);
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editInfo, setEditInfo] = useState<Partial<Deltager>>({});
 

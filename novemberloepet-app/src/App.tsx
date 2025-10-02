@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
 import './App.css';
+
+import React, { useState } from 'react';
+
 import NavBar from './components/NavBar';
-import Home from './pages/Home';
-import Registration from './pages/Registration';
-import Confirmation from './pages/Confirmation';
-import Results from './pages/Results';
-import FinishTimeRegister from './pages/FinishTimeRegister';
-import StartTimeRegister from './pages/StartTimeRegister';
-import Etapper from './pages/Etapper';
-import Startliste from './pages/Startliste';
 import { DeltagerProvider } from './context/DeltagerContext';
 import { EtappeProvider } from './context/EtappeContext';
+import Confirmation from './pages/Confirmation';
+import Etapper from './pages/Etapper';
+import FinishTimeRegister from './pages/FinishTimeRegister';
+import Home from './pages/Home';
+import Registration from './pages/Registration';
+import Results from './pages/Results';
+import Startliste from './pages/Startliste';
+import StartTimeRegister from './pages/StartTimeRegister';
 
 function App() {
   const [page, setPage] = useState('home');

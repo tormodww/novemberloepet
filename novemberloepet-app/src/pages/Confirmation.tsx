@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useDeltagerContext } from '../context/DeltagerContext';
 import {
   Box,
   Button,
   MenuItem,
   TextField
 } from '@mui/material';
+import React, { useEffect, useRef,useState } from 'react';
+
+import { useDeltagerContext } from '../context/DeltagerContext';
 import DeltagerPrintView from './DeltagerPrintView'; // juster path etter behov
 
 const Confirmation: React.FC = () => {

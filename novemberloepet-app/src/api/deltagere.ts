@@ -1,5 +1,5 @@
-import type { Deltager } from './types';
 import { apiGet, apiPost, apiPut } from './apiClient';
+import type { Deltager } from './types';
 
 // Remote representation returned by proxy/Parse
 export type RemoteDeltagere = Deltager & { objectId?: string; id?: string };

@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, ReactNode,useContext, useEffect, useState } from 'react';
 
 import type { Deltager, DeltagerStatus, EtappeResultat, PendingOp } from '../api/types';
 export type { Deltager, DeltagerStatus, EtappeResultat } from '../api/types';
+import { createDeltagere, fetchAllDeltagere, findRemoteByStartnummer,updateDeltagereById } from '../api/deltagere';
 import { computeBackoff } from '../api/opQueue';
-import { fetchAllDeltagere, updateDeltagereById, createDeltagere, findRemoteByStartnummer } from '../api/deltagere';
 
 type DeltagerContextType = {
   deltagere: Deltager[];

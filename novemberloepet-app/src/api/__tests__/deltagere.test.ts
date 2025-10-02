@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchAllDeltagere, createDeltagere, updateDeltagereById } from '../deltagere';
+import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { RemoteDeltagere } from '../deltagere';
+import { createDeltagere, fetchAllDeltagere, updateDeltagereById } from '../deltagere';
 
 const globalAny: any = global;
 

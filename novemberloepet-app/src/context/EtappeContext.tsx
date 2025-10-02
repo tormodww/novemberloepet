@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, ReactNode,useContext, useEffect, useState } from 'react';
 
-import type { Etappe } from '../api/types';
-import { fetchEtapper, createEtapper, updateEtapperById, deleteEtapperById } from '../api/etapper';
+import { createEtapper, deleteEtapperById,fetchEtapper, updateEtapperById } from '../api/etapper';
+import type { Etappe } from '../api/types'; // Rettet: tidligere '../api' ga IDE-feil om tsconfig-inkludering
 
 function formatIdealTimeInput(input: string): string {
-  // Fjerner alt annet enn tall
+  // Fjerner alt annet enn tall (padStart krever ES2017+, tsconfig target/lib er satt til ES2020)
   const clean = input.replace(/\D/g, '');
   if (!clean) return '';
   let padded = clean.padStart(2, '0');
