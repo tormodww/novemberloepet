@@ -15,6 +15,8 @@ type DeltagerContextType = {
   setDeltagerStatus: (startnummer: string, status: DeltagerStatus) => void;
   setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
   updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
+  updateStartTime: (startnummer: string, etappe: number, starttid: string) => Promise<boolean>;
+  updateFinishTime: (startnummer: string, etappe: number, maltid: string) => Promise<boolean>;
   pendingOps: PendingOp[];
   retryOp: (id: string) => void;
   clearOp: (id: string) => void;
@@ -365,6 +367,38 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     return false;
   };
 
+  const updateStartTime = async (startnummer: string, etappe: number, starttid: string): Promise<boolean> => {
+    let target: Deltager | undefined;
+    setDeltagere(prev => prev.map(d => {
+      if (d.startnummer !== startnummer) return d;
+      target = d;
+      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
+      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const idx = etappe - 1;
+      results[idx] = { ...results[idx], starttid };
+      return { ...d, starttid, resultater: results };
+    }));
+    const snapshot = target;
+    const payload: Partial<Deltager> = snapshot ? { starttid, resultater: snapshot.resultater?.map(r => r.etappe === etappe ? { ...r, starttid } : r) } : { starttid };
+    return updateDeltager(startnummer, payload);
+  };
+
+  const updateFinishTime = async (startnummer: string, etappe: number, maltid: string): Promise<boolean> => {
+    let target: Deltager | undefined;
+    setDeltagere(prev => prev.map(d => {
+      if (d.startnummer !== startnummer) return d;
+      target = d;
+      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
+      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const idx = etappe - 1;
+      results[idx] = { ...results[idx], maltid };
+      return { ...d, resultater: results };
+    }));
+    const snapshot = target;
+    const payload: Partial<Deltager> = snapshot ? { resultater: snapshot.resultater?.map(r => r.etappe === etappe ? { ...r, maltid } : r) } : {};
+    return updateDeltager(startnummer, payload);
+  };
+
   // Confirm-selection state: allows other pages (e.g. Startliste) to tell Confirmation which startnummer to select
   const [confirmSelectedStartnummer, setConfirmSelectedStartnummer] = useState<string | null>(null);
 
@@ -388,6 +422,8 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       setDeltagerStatus,
       setMultipleDeltagerStatus,
       updateDeltager,
+      updateStartTime,
+      updateFinishTime,
       // queue API
       pendingOps,
       retryOp: (id: string) => {

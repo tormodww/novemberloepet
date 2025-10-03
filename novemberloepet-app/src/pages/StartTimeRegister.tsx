@@ -1,14 +1,14 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 
-import { Deltager, type EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
+import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { formatManualStart } from '../lib/timeFormat';
 
 const StartTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateStartTime } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   // Veiviser steg og valgt etappe/deltager
@@ -20,6 +20,10 @@ const StartTimeRegister: React.FC = () => {
   const [manualInput, setManualInput] = useState('');
   const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
+  const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('starttime.selectedStartnummer', null);
+  const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
+  const autoInputRef = useRef<HTMLInputElement | null>(null);
+  const manualInputRef = useRef<HTMLInputElement | null>(null);
 
   const existingEtappeStart = (() => {
     if (valgtEtappe == null || !valgtDeltager) return '';
@@ -33,20 +37,26 @@ const StartTimeRegister: React.FC = () => {
     return res?.status || '';
   })();
 
+  // Rehydrate valgt deltager når liste eller lagret startnummer endres
+  useEffect(() => {
+    if (!valgtDeltagerStartnummer) { setValgtDeltager(null); return; }
+    const found = deltagere.find(d => d.startnummer === valgtDeltagerStartnummer) || null;
+    setValgtDeltager(found);
+  }, [deltagere, valgtDeltagerStartnummer]);
+
+  // Oppdater persistent startnummer når valgtDeltager endres
+  useEffect(() => {
+    setValgtDeltagerStartnummer(valgtDeltager ? valgtDeltager.startnummer : null);
+  }, [valgtDeltager, setValgtDeltagerStartnummer]);
+
   const storeStartTime = useCallback((d: Deltager, time: string) => {
-    // Oppdater toppnivå starttid hvis ingen eller annen
-    // Samtidig sett per-etappe starttid i resultater
-    const ETAPPER = etapper.length;
-    const nye: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
-    if (valgtEtappe != null) {
-      const idx = valgtEtappe - 1;
-      nye[idx] = { ...nye[idx], starttid: time };
-    }
-    editDeltager(d.navn, { starttid: time, resultater: nye });
-  }, [editDeltager, etapper, valgtEtappe]);
+    // Bruk context sin synk-funksjon (optimistisk + backend)
+    if (valgtEtappe == null) return;
+    updateStartTime(d.startnummer, valgtEtappe, time);
+  }, [updateStartTime, valgtEtappe]);
 
   const registerNow = useCallback(() => {
-    if (!valgtDeltager) return;
+    if (!valgtDeltager || valgtEtappe == null) return;
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
@@ -60,10 +70,10 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, tid);
     showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
     setShowManual(false); setManualInput('');
-  }, [valgtDeltager, existingEtappeStart, storeStartTime, showMessage]);
+  }, [valgtDeltager, valgtEtappe, existingEtappeStart, storeStartTime, showMessage]);
 
   const saveManual = useCallback(() => {
-    if (!valgtDeltager) return;
+    if (!valgtDeltager || valgtEtappe == null) return;
     const formatted = formatManualStart(manualInput);
     if (!formatted) return;
     if (existingEtappeStart) {
@@ -74,10 +84,10 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, formatted);
     showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     setManualInput(''); setShowManual(false);
-  }, [valgtDeltager, manualInput, existingEtappeStart, storeStartTime, showMessage]);
+  }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage]);
 
   const confirmOverride = () => {
-    if (!valgtDeltager || !pendingAction) { setConfirmOverrideOpen(false); return; }
+    if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setConfirmOverrideOpen(false); return; }
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
@@ -101,6 +111,13 @@ const StartTimeRegister: React.FC = () => {
     setPendingAction(null);
     setConfirmOverrideOpen(false);
   };
+
+  // Autofokus på manuell felt når aktivert
+  useEffect(() => {
+    if (showManual) {
+      setTimeout(() => manualInputRef.current?.focus(), 0);
+    }
+  }, [showManual]);
 
   // Tastatursnarveier – vi holder avhengighetslisten eksplisitt komplett så lint er fornøyd.
   useEffect(() => {
@@ -171,25 +188,43 @@ const StartTimeRegister: React.FC = () => {
           Etappe {valgtEtappe}{valgtEtappeObj?.navn ? `: ${valgtEtappeObj.navn}` : ''}
         </Typography>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
-        <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); }}>Bytt etappe</Button>
+        <Button variant="outlined" sx={{ mb: 2 }} onClick={() => setConfirmEtappeChangeOpen(true)}>
+          Bytt etappe
+        </Button>
         <Autocomplete
           options={deltagere.filter(d => !!d.startnummer)}
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
           value={valgtDeltager}
-          onChange={(_, ny) => { setValgtDeltager(ny); }}
+          onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); }}
           renderOption={(props, option) => {
             const status = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.status : undefined;
-            let chip: React.ReactNode = null;
-            if (status === 'DNS') chip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
-            else if (status === 'DNF') chip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            const etappeStart = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.starttid : '';
+            let statusChip: React.ReactNode = null;
+            if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
+            else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            const timeChip = etappeStart && status !== 'DNS' && status !== 'DNF'
+              ? <Chip label={etappeStart} color="success" size="small" sx={{ ml: 1 }} />
+              : null;
             return (
-              <li {...props} key={option.startnummer} style={{ display: 'flex', alignItems: 'center' }}>
-                <span>#{option.startnummer} {option.navn}</span>{chip}
+              <li
+                {...props}
+                key={option.startnummer}
+                style={{ display: 'flex', alignItems: 'center', ...(etappeStart ? { fontWeight: 600 } : {}) }}
+              >
+                <span>#{option.startnummer} {option.navn}</span>
+                {timeChip}
+                {statusChip}
               </li>
             );
           }}
           renderInput={params => (
-            <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth />
+            <TextField
+              {...params}
+              label="Startnummer eller navn"
+              variant="outlined"
+              fullWidth
+              inputRef={autoInputRef}
+            />
           )}
           sx={{ mb: 3 }}
           isOptionEqualToValue={(opt, val) => opt.startnummer === val?.startnummer}
@@ -212,6 +247,32 @@ const StartTimeRegister: React.FC = () => {
             >
               {existingEtappeStart ? 'Overskriv starttid = nå' : 'Registrer starttid = nå'}
             </Button>
+            {/* Flyttet manuell toggle rett under registrer-knappen */}
+            <Button
+              variant="outlined"
+              size="large"
+              sx={{ py: 1.5, fontSize: 18 }}
+              onClick={() => { setShowManual(s => !s); if (showManual) { setManualInput(''); } }}
+            >
+              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
+            </Button>
+            {showManual && (
+              <Stack spacing={1}>
+                <TextField
+                  label="Manuell starttid (hhmm)"
+                  helperText="Skriv f.eks 0932 for 09:32"
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  inputMode="numeric"
+                  inputRef={manualInputRef}
+                />
+                <Button
+                  variant="contained"
+                  disabled={manualInput.replace(/\D/g,'').length < 3}
+                  onClick={saveManual}
+                >Lagre manuell tid</Button>
+              </Stack>
+            )}
             <Button
               variant="contained"
               color={isDNS ? 'warning' : 'error'}
@@ -252,30 +313,6 @@ const StartTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
-            <Button
-              variant="outlined"
-              size="large"
-              sx={{ py: 1.5, fontSize: 18 }}
-              onClick={() => { setShowManual(s => !s); if(showManual){ setManualInput(''); } }}
-            >
-              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
-            </Button>
-            {showManual && (
-              <Stack spacing={1}>
-                <TextField
-                  label="Manuell starttid (hhmm)"
-                  helperText="Skriv f.eks 0932 for 09:32"
-                  value={manualInput}
-                  onChange={e => setManualInput(e.target.value)}
-                  inputMode="numeric"
-                />
-                <Button
-                  variant="contained"
-                  disabled={manualInput.replace(/\D/g,'').length < 3}
-                  onClick={saveManual}
-                >Lagre manuell tid</Button>
-              </Stack>
-            )}
             {message && <Typography color="success.main">{message}</Typography>}
             <Button
               variant="text"
@@ -294,6 +331,23 @@ const StartTimeRegister: React.FC = () => {
           <DialogActions>
             <Button onClick={cancelOverride}>Avbryt</Button>
             <Button variant="contained" onClick={confirmOverride}>Overskriv</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={confirmEtappeChangeOpen} onClose={() => setConfirmEtappeChangeOpen(false)}>
+          <DialogTitle>Bekreft etappebytte</DialogTitle>
+          <DialogContent>
+            <Typography>Er du sikker på at du vil endre etappe?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmEtappeChangeOpen(false)}>Avbryt</Button>
+            <Button variant="contained" onClick={() => {
+              setStep(1);
+              setValgtDeltager(null);
+              clear();
+              setShowManual(false);
+              setManualInput('');
+              setConfirmEtappeChangeOpen(false);
+            }}>Bekreft</Button>
           </DialogActions>
         </Dialog>
       </Box>

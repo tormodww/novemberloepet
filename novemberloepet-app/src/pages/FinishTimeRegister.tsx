@@ -1,7 +1,7 @@
-import { Autocomplete, Box, Button, Chip,Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useState } from 'react';
+import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import React, { useEffect, useState, useRef } from 'react';
 
-import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
+import { Deltager, EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 import { usePersistentState } from '../hooks/usePersistentState';
@@ -20,7 +20,7 @@ function formatManualFinish(raw: string): string | null {
 }
 
 const FinishTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager, setEtappeStatus } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateFinishTime } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   const [step, setStep] = usePersistentState<number>('finishtime.step', 1);
@@ -31,6 +31,10 @@ const FinishTimeRegister: React.FC = () => {
   const [manualInput, setManualInput] = useState('');
   const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
+  const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('finishtime.selectedStartnummer', null);
+  const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
+  const autoInputRef = useRef<HTMLInputElement | null>(null);
+  const manualInputRef = useRef<HTMLInputElement | null>(null);
 
   const existingEtappeFinish = (() => {
     if (!valgtDeltager || etappe == null) return '';
@@ -40,6 +44,18 @@ const FinishTimeRegister: React.FC = () => {
     if (!valgtDeltager || etappe == null) return '';
     return valgtDeltager.resultater?.[etappe - 1]?.status || '';
   })();
+
+  // Hydrer valgt deltager fra persistent startnummer
+  useEffect(() => {
+    if (!valgtDeltagerStartnummer) { setValgtDeltager(null); return; }
+    const found = deltagere.find(d => d.startnummer === valgtDeltagerStartnummer) || null;
+    setValgtDeltager(found);
+  }, [deltagere, valgtDeltagerStartnummer]);
+
+  // Oppdater persistent startnummer ved deltager-endring
+  useEffect(() => {
+    setValgtDeltagerStartnummer(valgtDeltager ? valgtDeltager.startnummer : null);
+  }, [valgtDeltager, setValgtDeltagerStartnummer]);
 
   const handleRegisterNow = () => {
     if (!valgtDeltager || etappe == null) return;
@@ -53,20 +69,9 @@ const FinishTimeRegister: React.FC = () => {
       setConfirmOverrideOpen(true);
       return;
     }
-    persistFinishTime(valgtDeltager, tid);
+    updateFinishTime(valgtDeltager.startnummer, etappe, tid);
     showMessage(`Sluttid ${tid} registrert for #${valgtDeltager.startnummer}`);
     resetManual();
-  };
-
-  const persistFinishTime = (d: Deltager, maltid: string) => {
-    if (etappe == null) return;
-    const ETAPPER = etapper.length;
-    const nyeResultater: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) =>
-      d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }
-    );
-    const idx = etappe - 1;
-    nyeResultater[idx] = { ...nyeResultater[idx], maltid };
-    editDeltager(d.navn, { resultater: nyeResultater });
   };
 
   const handleManualSave = () => {
@@ -79,7 +84,7 @@ const FinishTimeRegister: React.FC = () => {
       setConfirmOverrideOpen(true);
       return;
     }
-    persistFinishTime(valgtDeltager, finalTime);
+    updateFinishTime(valgtDeltager.startnummer, etappe, finalTime);
     showMessage(`Sluttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     resetManual();
   };
@@ -94,13 +99,13 @@ const FinishTimeRegister: React.FC = () => {
       const mm = String(now.getMinutes()).padStart(2, '0');
       const ss = String(now.getSeconds()).padStart(2, '0');
       const tid = `${hh}:${mm}:${ss}`;
-      persistFinishTime(valgtDeltager, tid);
+      updateFinishTime(valgtDeltager.startnummer, etappe, tid);
       showMessage(`Sluttid oppdatert til ${tid}`);
     } else if (pendingAction === 'MANUAL') {
       const formatted = formatManualFinish(manualInput);
       if (formatted) {
         const finalTime = formatted.length === 5 ? `00:${formatted}` : formatted;
-        persistFinishTime(valgtDeltager, finalTime);
+        updateFinishTime(valgtDeltager.startnummer, etappe, finalTime);
         showMessage(`Sluttid oppdatert til ${formatted}`);
         resetManual();
       }
@@ -109,6 +114,37 @@ const FinishTimeRegister: React.FC = () => {
     setConfirmOverrideOpen(false);
   };
   const cancelOverride = () => { setPendingAction(null); setConfirmOverrideOpen(false); };
+
+  // Autofokus på manuell sluttid når vist
+  useEffect(() => {
+    if (showManual) {
+      setTimeout(() => manualInputRef.current?.focus(), 0);
+    }
+  }, [showManual]);
+
+  const unprocessedPredicate = (d: Deltager) => {
+    if (etappe == null) return true;
+    const r = d.resultater?.[etappe - 1];
+    const hasFinish = !!r?.maltid;
+    const status = r?.status;
+    return !hasFinish && status !== 'DNS' && status !== 'DNF';
+  };
+
+  const selectNextUnprocessed = (current?: Deltager | null) => {
+    if (etappe == null) return;
+    const sorted = [...deltagere].sort((a, b) => Number(a.startnummer) - Number(b.startnummer));
+    const candidates = sorted.filter(unprocessedPredicate);
+    if (candidates.length === 0) return;
+    if (!current) { setValgtDeltager(candidates[0]); return; }
+    const idx = candidates.findIndex(c => c.startnummer === current.startnummer);
+    const next = idx >= 0 && idx < candidates.length - 1 ? candidates[idx + 1] : candidates[0];
+    setValgtDeltager(next);
+  };
+
+  const filteredOptions = () => {
+    let list = deltagere.filter(d => !!d.startnummer);
+    return list;
+  };
 
   // Steg 1: Etappevalg
   if (step === 1) {
@@ -145,25 +181,33 @@ const FinishTimeRegister: React.FC = () => {
           Etappe {etappe}{valgtEtappeObj?.navn ? `: ${valgtEtappeObj.navn}` : ''}
         </Typography>
         <Typography variant="h6" gutterBottom>Velg deltager</Typography>
-        <Button variant="outlined" sx={{ mb: 2 }} onClick={() => { setStep(1); clear(); resetManual(); }}>Bytt etappe</Button>
+        <Button variant="outlined" sx={{ mb: 2 }} onClick={() => setConfirmEtappeChangeOpen(true)}>
+          Bytt etappe
+        </Button>
         <Autocomplete
           options={deltagere.filter(d => !!d.startnummer)}
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
           value={valgtDeltager}
-          onChange={(_, ny) => { setValgtDeltager(ny); clear(); resetManual(); }}
+          onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); clear(); resetManual(); }}
           renderOption={(props, option) => {
             const status = etappe != null ? option.resultater?.[etappe - 1]?.status : undefined;
-            let chip: React.ReactNode = null;
-            if (status === 'DNS') chip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
-            else if (status === 'DNF') chip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            const finish = etappe != null ? option.resultater?.[etappe - 1]?.maltid : '';
+            let statusChip: React.ReactNode = null;
+            if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
+            else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
+            const finishChip = finish && status !== 'DNS' && status !== 'DNF'
+              ? <Chip label={finish} color="success" size="small" sx={{ ml: 1 }} />
+              : null;
             return (
-              <li {...props} key={option.startnummer} style={{ display: 'flex', alignItems: 'center' }}>
-                <span>#{option.startnummer} {option.navn}</span>{chip}
+              <li {...props} key={option.startnummer} style={{ display: 'flex', alignItems: 'center', ...(finish ? { fontWeight: 600 } : {}) }}>
+                <span>#{option.startnummer} {option.navn}</span>
+                {finishChip}
+                {statusChip}
               </li>
             );
           }}
           renderInput={params => (
-            <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth />
+            <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth inputRef={autoInputRef} />
           )}
           sx={{ mb: 3 }}
           isOptionEqualToValue={(opt, val) => opt.startnummer === val?.startnummer}
@@ -186,6 +230,31 @@ const FinishTimeRegister: React.FC = () => {
             >
               {existingEtappeFinish ? 'Overskriv sluttid = nå' : 'Registrer sluttid = nå'}
             </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              sx={{ py: 1.5, fontSize: 18 }}
+              onClick={() => { setShowManual(s => !s); if (showManual) { setManualInput(''); } }}
+            >
+              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
+            </Button>
+            {showManual && (
+              <Stack spacing={1}>
+                <TextField
+                  label="Manuell sluttid (mmss / hhmmss)"
+                  helperText="Eksempel: 932 → 09:32, 73015 → 07:30:15"
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  inputMode="numeric"
+                  inputRef={manualInputRef}
+                />
+                <Button
+                  variant="contained"
+                  disabled={!formatManualFinish(manualInput)}
+                  onClick={handleManualSave}
+                >Lagre manuell tid</Button>
+              </Stack>
+            )}
             <Button
               variant="contained"
               color={isDNS ? 'warning' : 'error'}
@@ -213,11 +282,9 @@ const FinishTimeRegister: React.FC = () => {
               onClick={() => {
                 if (!valgtDeltager || etappe == null) return;
                 if (isDNF) {
-                  // Fjern DNF og behold maltid tom
                   setEtappeStatus(valgtDeltager.startnummer, etappe, 'NONE');
                   showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
                 } else {
-                  // Sett DNF og null ut sluttid for konsistens (regelvalg: DNF = ingen sluttid)
                   const ETAPPER = etapper.length;
                   const nye: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => valgtDeltager.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
                   const idx = etappe - 1;
@@ -231,30 +298,6 @@ const FinishTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
-            <Button
-              variant="outlined"
-              size="large"
-              sx={{ py: 1.5, fontSize: 18 }}
-              onClick={() => setShowManual(s => !s)}
-            >
-              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
-            </Button>
-            {showManual && (
-              <Stack spacing={1}>
-                <TextField
-                  label="Manuell sluttid (mmss / hhmmss)"
-                  helperText="Eksempel: 932 → 09:32, 73015 → 07:30:15"
-                  value={manualInput}
-                  onChange={e => setManualInput(e.target.value)}
-                  inputMode="numeric"
-                />
-                <Button
-                  variant="contained"
-                  disabled={!formatManualFinish(manualInput)}
-                  onClick={handleManualSave}
-                >Lagre manuell tid</Button>
-              </Stack>
-            )}
             {message && <Typography color="success.main">{message}</Typography>}
             <Button
               variant="text"
@@ -273,6 +316,22 @@ const FinishTimeRegister: React.FC = () => {
           <DialogActions>
             <Button onClick={cancelOverride}>Avbryt</Button>
             <Button variant="contained" onClick={confirmOverride}>Overskriv</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={confirmEtappeChangeOpen} onClose={() => setConfirmEtappeChangeOpen(false)}>
+          <DialogTitle>Bekreft etappebytte</DialogTitle>
+          <DialogContent>
+            <Typography>Er du sikker på at du vil endre etappe?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmEtappeChangeOpen(false)}>Avbryt</Button>
+            <Button variant="contained" onClick={() => {
+              setStep(1);
+              setValgtDeltager(null);
+              clear();
+              resetManual();
+              setConfirmEtappeChangeOpen(false);
+            }}>Bekreft</Button>
           </DialogActions>
         </Dialog>
       </Box>
