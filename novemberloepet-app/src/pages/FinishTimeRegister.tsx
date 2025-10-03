@@ -6,7 +6,7 @@ import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { formatManualStart } from '../lib/timeFormat';
+import { formatManualFinish } from '../lib/timeFormat';
 
 const FinishTimeRegister: React.FC = () => {
   const { deltagere, editDeltager, setEtappeStatus, updateFinishTime, deleteFinishTime } = useDeltagerContext();
@@ -104,8 +104,8 @@ const FinishTimeRegister: React.FC = () => {
 
   const saveManual = useCallback(async () => {
     if (!valgtDeltager || valgtEtappe == null) return;
-    const formatted = formatManualStart(manualInput);
-    if (!formatted) return;
+    const formatted = formatManualFinish(manualInput);
+    if (!formatted) { showMessage('Ugyldig manuell tid'); return; }
     // If participant currently has DNS/DNF for this etappe, confirm before replacing it with a finish time
     if (existingEtappeStatus === 'DNS' || existingEtappeStatus === 'DNF') {
       setPendingReplace({ kind: 'SET_FINISH', time: formatted });
@@ -119,6 +119,15 @@ const FinishTimeRegister: React.FC = () => {
     }
     const ok = await storeFinishTime(valgtDeltager, formatted);
     if (ok) {
+      // optimistic update so UI shows the saved finish time immediately
+      setValgtDeltager(prev => {
+        if (!prev) return prev;
+        const results = Array.isArray(prev.resultater) ? [...prev.resultater] : [];
+        const idx = Math.max(0, valgtEtappe - 1);
+        const existing = results[idx] || { etappe: idx + 1, starttid: '', maltid: '', idealtid: '', diff: '' } as any;
+        results[idx] = { ...existing, sluttTid: formatted } as any;
+        return { ...prev, resultater: results } as Deltager;
+      });
       showMessage(`Slutt-tid ${formatted} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
@@ -313,14 +322,14 @@ const FinishTimeRegister: React.FC = () => {
             >
               {existingEtappeFinish ? 'Overskriv slutt-tid = nå' : 'Registrer slutt-tid = nå'}
             </Button>
-            {/* Flyttet manuell toggle rett under registrer-knappen */}
+            {/* Flyttet manuell toggle rett under registrer-knappen. Button opens manual input; cancel removed. */}
             <Button
               variant="outlined"
               size="large"
               sx={{ py: 1.5, fontSize: 18 }}
-              onClick={() => { setShowManual(s => !s); if (showManual) { setManualInput(''); } }}
+              onClick={() => { setShowManual(true); }}
             >
-              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
+              Korriger / sett tid manuelt
             </Button>
             {showManual && (
               <Stack spacing={1}>
@@ -427,7 +436,7 @@ const FinishTimeRegister: React.FC = () => {
                 if (ok) { showMessage(`Slutt-tid oppdatert til ${tid}`); localStorage.clear(); }
                 else { showMessage('Kunne ikke lagre slutt-tid til backend'); }
               } else if (pendingAction === 'MANUAL') {
-                const formatted = formatManualStart(manualInput);
+                const formatted = formatManualFinish(manualInput);
                 if (formatted) {
                   const ok = await storeFinishTime(valgtDeltager, formatted);
                   if (ok) { showMessage(`Slutt-tid oppdatert til ${formatted}`); setManualInput(''); setShowManual(false); localStorage.clear(); }
