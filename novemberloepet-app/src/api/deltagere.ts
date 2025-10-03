@@ -10,13 +10,20 @@ export async function fetchAllDeltagere(): Promise<RemoteDeltagere[]> {
   return res.data;
 }
 
+function sanitizePayload<T extends object>(payload: T): T {
+  const { createdAt, updatedAt, ...rest } = payload as any;
+  return rest as T;
+}
+
 export async function updateDeltagereById(id: string, payload: Partial<Deltager>): Promise<boolean> {
-  const res = await apiPut<RemoteDeltagere>(`/api/deltagere/${id}`, payload);
+  const sanitized = sanitizePayload(payload);
+  const res = await apiPut<RemoteDeltagere>(`/api/deltagere/${id}`, sanitized);
   return res.ok;
 }
 
 export async function createDeltagere(payload: Partial<Deltager>): Promise<RemoteDeltagere> {
-  const res = await apiPost<RemoteDeltagere>('/api/deltagere', payload);
+  const sanitized = sanitizePayload(payload);
+  const res = await apiPost<RemoteDeltagere>('/api/deltagere', sanitized);
   if (!res.ok) throw new Error(`createDeltagere failed: ${res.status}`);
   return res.data;
 }
@@ -28,4 +35,38 @@ export async function findRemoteByStartnummer(startnummer: string): Promise<Remo
   } catch (e) {
     return undefined;
   }
+}
+
+export async function updateFinishTime(startnummer: string, etappe: number, slutttid: string): Promise<boolean> {
+  // Find the deltager by startnummer
+  let deltager = await findRemoteByStartnummer(startnummer);
+  if (!deltager) {
+    // Create deltager if not found
+    deltager = await createDeltagere({ startnummer });
+  }
+  // Update the correct etappe result
+  const resultater = deltager.resultater?.map(r =>
+    r.etappe === etappe ? { ...r, slutttid } : r
+  ) ?? [];
+  const id = deltager.objectId || deltager.id || deltager.parseId;
+  if (!id) return false;
+  const res = await updateDeltagereById(id, { resultater });
+  return res;
+}
+
+export async function deleteFinishTime(startnummer: string, etappe: number): Promise<boolean> {
+  // Find the deltager by startnummer
+  let deltager = await findRemoteByStartnummer(startnummer);
+  if (!deltager) {
+    // Create deltager if not found
+    deltager = await createDeltagere({ startnummer });
+  }
+  // Remove slutttid from the correct etappe result
+  const resultater = deltager.resultater?.map(r =>
+    r.etappe === etappe ? { ...r, slutttid: '' } : r
+  ) ?? [];
+  const id = deltager.objectId || deltager.id || deltager.parseId;
+  if (!id) return false;
+  const res = await updateDeltagereById(id, { resultater });
+  return res;
 }

@@ -17,7 +17,8 @@ const Results: React.FC = () => {
 
   // Grupper deltagere per klasse
   const grupper: { [klasse: string]: typeof deltagere } = {};
-  deltagere.forEach((d) => {
+  const safeDeltagere = Array.isArray(deltagere) ? deltagere : [];
+  safeDeltagere.forEach((d) => {
     if (!grupper[d.klasse]) grupper[d.klasse] = [];
     grupper[d.klasse].push(d);
   });
@@ -66,6 +67,8 @@ const Results: React.FC = () => {
     setOpen(false);
   };
 
+  const safeEtapper = Array.isArray(etapper) ? etapper : [];
+
   return (
     <Box maxWidth={1100} mx="auto">
       <Typography variant="h5" gutterBottom>Resultatliste</Typography>
@@ -82,7 +85,7 @@ const Results: React.FC = () => {
                   <TableCell>Modell</TableCell>
                   <TableCell>Starttid</TableCell>
                   {Array.from({ length: numEtapper }, (_, i) => (
-                    <TableCell key={i}>{etapper[i]?.navn ? `${etapper[i].navn}` : `Etappe ${i + 1} tid`}</TableCell>
+                    <TableCell key={i}>{safeEtapper[i]?.navn ? `${safeEtapper[i].navn}` : `Etappe ${i + 1} tid`}</TableCell>
                   ))}
                   <TableCell>Handling</TableCell>
                 </TableRow>

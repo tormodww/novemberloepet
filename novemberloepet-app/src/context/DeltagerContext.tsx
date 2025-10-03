@@ -40,58 +40,25 @@ export const useDeltagerContext = () => {
 const STORAGE_KEY = 'novemberloepet.deltagere.v1';
 const OPS_KEY = 'novemberloepet.pendingops.v1';
 
-const generatedTestDeltagere = (() => {
-  const bikes = [
-    'Cz 360', 'Bsa B50 Victor', 'Honda XL250', 'Husqvarna', 'Yamaha DT 250', 'NV 38 250',
-    'Yamaha DT 360', 'Honda ST70', 'Husqvarna 250', 'Suzuki RM', 'Kawasaki KE',
-    'Triumph TR', 'Norton Commando', 'Royal Enfield', 'BMW R75', 'Harley WL', 'Montesa', 'Beta', 'Aprilia'
-  ];
-  const classes = ['Oldtimer', 'Pre 75', 'Pre 85', 'Classic'];
-  const arr: Deltager[] = [];
-  const baseMinutes = 10 * 60 + 30; // 10:30
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  for (let i = 0; i < 44; i++) {
-    const num = i + 1;
-    const minutes = baseMinutes + i; // one minute apart
-    const hh = Math.floor(minutes / 60);
-    const mm = minutes % 60;
-    arr.push({
-      startnummer: String(num),
-      navn: `Deltaker ${num}`,
-      adresse: '',
-      postnr: '',
-      nasjon: '',
-      poststed: '',
-      telefon: '',
-      email: '',
-      sykkel: bikes[i % bikes.length],
-      mod: String(1950 + (i % 50)),
-      modell: String(1950 + (i % 50)),
-      teknisk: '',
-      preKlasse: '',
-      klasse: classes[i % classes.length],
-      starttid: `${pad(hh)}:${pad(mm)}`,
-      resultater: [],
-      status: 'NONE'
-    });
-  }
-  return arr;
-})();
-
 export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode; onNavigate?: (page: string) => void }) => {
-  const [deltagere, setDeltagere] = useState<Deltager[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Deltager[];
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      // ignore parse errors and fallback to generated
-    }
-    return generatedTestDeltagere;
-  });
+  const [deltagere, setDeltagere] = useState<Deltager[]>([]);
 
+  // Always fetch all deltagere from backend on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const remote = await fetchAllDeltagere();
+        setDeltagere(remote);
+        // Optionally cache to localStorage for offline support
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      } catch (e) {
+        // If backend fails, show error or keep deltagere empty
+        setDeltagere([]);
+      }
+    })();
+  }, []);
+
+  // Optionally keep localStorage updated for offline cache, but never use as initial source
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(deltagere));
@@ -114,21 +81,21 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     return [];
   });
 
-  const persistOps = (ops: PendingOp[]) => {
+  const persistOps = useCallback((ops: PendingOp[]) => {
     try {
       localStorage.setItem(OPS_KEY, JSON.stringify(ops));
     } catch (e) {
       // ignore
     }
-  };
+  }, []);
 
-  function enqueueOp(op: PendingOp) {
+  const enqueueOp = useCallback((op: PendingOp) => {
     setPendingOps(prev => {
       const next = [...prev, { ...op, nextAttemptAt: null }];
       persistOps(next);
       return next;
     });
-  }
+  }, [persistOps]);
 
   const removeOp = useCallback((id: string) => {
     setPendingOps(prev => {
@@ -136,7 +103,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       persistOps(next);
       return next;
     });
-  }, []);
+  }, [persistOps]);
 
   // Attempt to process the queue (best-effort). Runs sequentially.
   const processQueue = useCallback(async () => {
@@ -167,7 +134,6 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
               const mid = match.objectId || match.id;
               const ok = await updateDeltagereById(String(mid), payload as any);
               if (ok) {
-                // store parseId locally
                 setDeltagere(prev => prev.map(d => d.startnummer === sn ? { ...d, parseId: mid } : d));
                 removeOp(op.id);
                 continue;
@@ -213,7 +179,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
         });
       }
     }
-  }, [pendingOps, deltagere, removeOp]);
+  }, [pendingOps, deltagere, removeOp, persistOps]);
 
   useEffect(() => {
     // try processing every 10s while there are ops (best-effort)
@@ -364,8 +330,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     })();
   };
 
-  const updateDeltager = async (startnummer: string, data: Partial<Deltager>): Promise<boolean> => {
-    // update local state immediately
+  const updateDeltager = useCallback(async (startnummer: string, data: Partial<Deltager>): Promise<boolean> => {
     setDeltagere(prev => prev.map(d => d.startnummer === startnummer ? { ...d, ...data } : d));
     try {
       const local = deltagere.find(d => d.startnummer === startnummer);
@@ -389,10 +354,9 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       console.warn('updateDeltager failed, will enqueue', e);
     }
     // enqueue op for later retry
-    const op: PendingOp = { id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, type: 'update', startnummer, payload: data, parseId: undefined, attempts: 0 };
-    enqueueOp(op);
+    enqueueOp({ id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, type: 'update', startnummer, payload: data, parseId: undefined, attempts: 0 });
     return false;
-  };
+  }, [deltagere, enqueueOp]);
 
   const updateStartTime = async (startnummer: string, etappe: number, starttid: string): Promise<boolean> => {
     let updatedResults: EtappeResultat[] | undefined;
@@ -410,7 +374,8 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     return updateDeltager(startnummer, payload);
   };
 
-  const updateFinishTime = async (startnummer: string, etappe: number, maltid: string): Promise<boolean> => {
+  // Update finish time for a deltager's etappe
+  const updateFinishTime = useCallback(async (startnummer: string, etappe: number, maltid: string): Promise<boolean> => {
     let updatedResults: EtappeResultat[] | undefined;
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
@@ -421,40 +386,68 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       updatedResults = results;
       return { ...d, resultater: results };
     }));
-    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
-    return updateDeltager(startnummer, payload);
-  };
+    // Sync with backend
+    try {
+      const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+      const ok = await updateDeltager(startnummer, payload);
+      if (!ok) throw new Error('Backend update failed');
+      return true;
+    } catch (e) {
+      // Optionally enqueue for retry
+      enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, maltid }, attempts: 0 });
+      return false;
+    }
+  }, [enqueueOp, updateDeltager]);
 
-  const deleteStartTime = async (startnummer: string, etappe: number): Promise<boolean> => {
+  // Delete finish time for a deltager's etappe
+  const deleteFinishTime = useCallback(async (startnummer: string, etappe: number): Promise<boolean> => {
+    setDeltagere(prev => prev.map(d =>
+      d.startnummer === startnummer
+        ? {
+            ...d,
+            resultater: d.resultater?.map(r =>
+              r.etappe === etappe ? { ...r, slutttid: '' } : r
+            ) ?? []
+          }
+        : d
+    ));
+    // Sync with backend
+    try {
+      const ok = await import('../api/deltagere').then(api => api.deleteFinishTime(startnummer, etappe));
+      if (!ok) throw new Error('Backend delete failed');
+      return true;
+    } catch (e) {
+      // Optionally enqueue for retry
+      enqueueOp({ id: `${Date.now()}-deletefinish`, type: 'update', startnummer, payload: { etappe, slutttid: '' }, attempts: 0 });
+      return false;
+    }
+  }, [enqueueOp]);
+
+  // Delete start time for a deltager's etappe
+  const deleteStartTime = useCallback(async (startnummer: string, etappe: number): Promise<boolean> => {
     let updatedResults: EtappeResultat[] | undefined;
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
-      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
-      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const results = Array.isArray(d.resultater) ? [...d.resultater] : [];
       const idx = etappe - 1;
-      results[idx] = { ...results[idx], starttid: '' };
-      updatedResults = results;
-      // Kun oppdater resultater, ikke planlagt starttid (d.starttid)
-      return { ...d, resultater: results };
-    }));
-    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
-    return updateDeltager(startnummer, payload);
-  };
-
-  const deleteFinishTime = async (startnummer: string, etappe: number): Promise<boolean> => {
-    let updatedResults: EtappeResultat[] | undefined;
-    setDeltagere(prev => prev.map(d => {
-      if (d.startnummer !== startnummer) return d;
-      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
-      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
-      const idx = etappe - 1;
-      results[idx] = { ...results[idx], maltid: '' };
+      if (results[idx]) {
+        results[idx] = { ...results[idx], starttid: '' };
+      }
       updatedResults = results;
       return { ...d, resultater: results };
     }));
-    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
-    return updateDeltager(startnummer, payload);
-  };
+    // Sync with backend
+    try {
+      const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+      const ok = await updateDeltager(startnummer, payload);
+      if (!ok) throw new Error('Backend delete failed');
+      return true;
+    } catch (e) {
+      // Optionally enqueue for retry
+      enqueueOp({ id: `${Date.now()}-deletestart`, type: 'update', startnummer, payload: { etappe, starttid: '' }, attempts: 0 });
+      return false;
+    }
+  }, [enqueueOp, updateDeltager]);
 
   // Confirm-selection state: allows other pages (e.g. Startliste) to tell Confirmation which startnummer to select
   const [confirmSelectedStartnummer, setConfirmSelectedStartnummer] = useState<string | null>(null);

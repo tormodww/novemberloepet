@@ -12,6 +12,8 @@ function formatIdealTimeInput(input: string): string {
   return `${padded.slice(0,2)}:${padded.slice(2,4)}`;
 }
 
+const STORAGE_KEY = 'novemberloepet.etapper';
+
 const defaultEtapper: Etappe[] = [
   { nummer: 1, navn: '1-SS - Moss Mc/Kåk', idealtid: '04:00' },
   { nummer: 2, navn: '2-SS Hveker', idealtid: '04:00' },
@@ -21,8 +23,6 @@ const defaultEtapper: Etappe[] = [
   { nummer: 6, navn: '6-SS Hveker', idealtid: '04:00' },
   { nummer: 7, navn: '7-SS/ Moss Mc/Kåk', idealtid: '02:00' },
 ];
-
-const STORAGE_KEY = 'novemberloepet.etapper';
 
 type EtappeContextType = {
   etapper: Etappe[];
@@ -35,28 +35,51 @@ type EtappeContextType = {
   etapperError: string | null;
   reloadEtapper: () => Promise<boolean>; // endret fra Promise<void>
   saveEtapperToBack4app: () => Promise<boolean>; // New function to save to back4app
+  showSaveDefaultPrompt: boolean; // New state to control default prompt visibility
+  handleSaveDefaultEtapper: () => Promise<void>; // New handler to save default etapper
 };
 
 const EtappeContext = createContext<EtappeContextType | undefined>(undefined);
 
 export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [etapper, setEtapper] = useState<Etappe[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Etappe[];
-        if (Array.isArray(parsed) && parsed.every(p => typeof p.nummer === 'number')) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    return defaultEtapper;
-  });
+  const [etapper, setEtapper] = useState<Etappe[]>([]);
   const [remoteId, setRemoteId] = useState<string | null>(null);
   const [loadingEtapper, setLoadingEtapper] = useState<boolean>(false);
   const [etapperError, setEtapperError] = useState<string | null>(null);
+  const [showSaveDefaultPrompt, setShowSaveDefaultPrompt] = useState(false);
+
+  // Always fetch etapper from backend on mount
+  useEffect(() => {
+    setLoadingEtapper(true);
+    fetchEtapper()
+      .then(data => {
+        if (Array.isArray(data) && data.length === 0) {
+          setEtapper(defaultEtapper);
+          setShowSaveDefaultPrompt(true);
+        } else {
+          setEtapper(data);
+          setShowSaveDefaultPrompt(false);
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        setLoadingEtapper(false);
+        setEtapperError(null);
+      })
+      .catch(_err => {
+        setEtapper([]);
+        setLoadingEtapper(false);
+        setEtapperError('Kunne ikke hente etapper fra backend');
+        setShowSaveDefaultPrompt(false);
+      });
+  }, []);
+
+  // Optionally keep localStorage updated for offline cache, but never use as initial source
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper));
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [etapper]);
 
   const loadFromProxy = async (attempt = 1): Promise<boolean> => {
     setLoadingEtapper(true);
@@ -145,19 +168,6 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return loadFromProxy(1);
   };
 
-  // Load from proxy on mount
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const ok = await loadFromProxy(1);
-      if (!ok && mounted) {
-        // Already have local fallback loaded via initial state.
-      }
-    })();
-    return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // sync to localStorage whenever etapper changes
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper)); } catch (e) {}
@@ -188,8 +198,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     saveToProxy(next);
   };
   const resetEtapper = () => {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    setEtapper(defaultEtapper);
+    setEtapper([]);
     (async () => {
       try {
         if (remoteId) {
@@ -210,6 +219,19 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  const handleSaveDefaultEtapper = async () => {
+    setLoadingEtapper(true);
+    try {
+      await createEtapper(defaultEtapper);
+      setShowSaveDefaultPrompt(false);
+      setLoadingEtapper(false);
+      setEtapperError(null);
+    } catch (e) {
+      setEtapperError('Kunne ikke lagre default etapper til backend');
+      setLoadingEtapper(false);
+    }
+  };
+
   return (
     <EtappeContext.Provider value={{
       etapper: etapper as Etappe[],
@@ -221,9 +243,22 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       loadingEtapper,
       etapperError: etapperError, // eksplisitt union
       reloadEtapper,
-      saveEtapperToBack4app
+      saveEtapperToBack4app,
+      showSaveDefaultPrompt,
+      handleSaveDefaultEtapper,
     }}>
       {children}
+      {/* Prompt UI for saving default etapper */}
+      {showSaveDefaultPrompt && (
+        <div role="dialog" aria-modal="true" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'white',padding:'2rem',borderRadius:'8px',maxWidth:'400px',textAlign:'center'}}>
+            <h2>Ingen etapper funnet</h2>
+            <p>Vil du lagre standard etapper til backend?</p>
+            <button onClick={handleSaveDefaultEtapper} style={{marginRight:'1rem'}}>Lagre</button>
+            <button onClick={()=>setShowSaveDefaultPrompt(false)}>Avbryt</button>
+          </div>
+        </div>
+      )}
     </EtappeContext.Provider>
   );
 };

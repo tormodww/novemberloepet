@@ -61,30 +61,34 @@ const StartTimeRegister: React.FC = () => {
     }, 0);
   }, [valgtDeltager, setValgtDeltagerStartnummer, valgtDeltagerStartnummer]);
 
-  const storeStartTime = useCallback((d: Deltager, time: string) => {
-    // Bruk context sin synk-funksjon (optimistisk + backend)
-    if (valgtEtappe == null) return;
-    updateStartTime(d.startnummer, valgtEtappe, time);
+  const storeStartTime = useCallback(async (d: Deltager, time: string) => {
+    if (valgtEtappe == null) return false;
+    const ok = await updateStartTime(d.startnummer, valgtEtappe, time);
+    return ok;
   }, [valgtEtappe, updateStartTime]);
 
-  const registerNow = useCallback(() => {
+  const registerNow = useCallback(async () => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     const tid = `${hh}:${mm}`;
-    // Sjekk override
     if (existingEtappeStart) {
       setPendingAction('NOW');
       setConfirmOverrideOpen(true);
       return;
     }
-    storeStartTime(valgtDeltager, tid);
-    showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
+    const ok = await storeStartTime(valgtDeltager, tid);
+    if (ok) {
+      showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
+      localStorage.clear();
+    } else {
+      showMessage('Kunne ikke lagre starttid til backend');
+    }
     setShowManual(false); setManualInput('');
   }, [valgtDeltager, valgtEtappe, existingEtappeStart, storeStartTime, showMessage]);
 
-  const saveManual = useCallback(() => {
+  const saveManual = useCallback(async () => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const formatted = formatManualStart(manualInput);
     if (!formatted) return;
@@ -93,26 +97,41 @@ const StartTimeRegister: React.FC = () => {
       setConfirmOverrideOpen(true);
       return;
     }
-    storeStartTime(valgtDeltager, formatted);
-    showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
+    const ok = await storeStartTime(valgtDeltager, formatted);
+    if (ok) {
+      showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
+      localStorage.clear();
+    } else {
+      showMessage('Kunne ikke lagre starttid til backend');
+    }
     setManualInput(''); setShowManual(false);
   }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage]);
 
-  const confirmOverride = () => {
+  const confirmOverride = async () => {
     if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setConfirmOverrideOpen(false); return; }
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     if (pendingAction === 'NOW') {
       const tid = `${hh}:${mm}`;
-      storeStartTime(valgtDeltager, tid);
-      showMessage(`Starttid oppdatert til ${tid}`);
+      const ok = await storeStartTime(valgtDeltager, tid);
+      if (ok) {
+        showMessage(`Starttid oppdatert til ${tid}`);
+        localStorage.clear();
+      } else {
+        showMessage('Kunne ikke lagre starttid til backend');
+      }
     } else if (pendingAction === 'MANUAL') {
       const formatted = formatManualStart(manualInput);
       if (formatted) {
-        storeStartTime(valgtDeltager, formatted);
-        showMessage(`Starttid oppdatert til ${formatted}`);
-        setManualInput(''); setShowManual(false);
+        const ok = await storeStartTime(valgtDeltager, formatted);
+        if (ok) {
+          showMessage(`Starttid oppdatert til ${formatted}`);
+          setManualInput(''); setShowManual(false);
+          localStorage.clear();
+        } else {
+          showMessage('Kunne ikke lagre starttid til backend');
+        }
       }
     }
     setPendingAction(null);
@@ -193,7 +212,7 @@ const StartTimeRegister: React.FC = () => {
   if (step === 2 && valgtEtappe !== null) {
     const isDNS = existingEtappeStatus === 'DNS';
     const isDNF = existingEtappeStatus === 'DNF';
-    const valgtEtappeObj = etapper.find(e => e.nummer === valgtEtappe);
+    const valgtEtappeObj = Array.isArray(etapper) ? etapper.find(e => e.nummer === valgtEtappe) : undefined;
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>

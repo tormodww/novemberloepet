@@ -1,9 +1,7 @@
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FlagIcon from '@mui/icons-material/Flag';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import HomeIcon from '@mui/icons-material/Home';
-import ListAltIcon from '@mui/icons-material/ListAlt';
 import MenuIcon from '@mui/icons-material/Menu';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AppBar from '@mui/material/AppBar';
@@ -33,13 +31,10 @@ const NavBar: React.FC = () => {
 
   const navItems: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
     { key: 'home', label: 'Hjem', icon: <HomeIcon />, path: '/' },
-    { key: 'etapper', label: 'Etapper', icon: <ListAltIcon />, path: '/etapper' },
-    { key: 'registration', label: 'Registrering', icon: <CheckCircleIcon />, path: '/registration' },
-    { key: 'startliste', label: 'Startliste', icon: <FormatListNumberedIcon />, path: '/startliste' },
     { key: 'starttime', label: 'Starttid', icon: <PlayArrowIcon />, path: '/starttid' },
     { key: 'finishtime', label: 'Slutttid', icon: <FlagIcon />, path: '/sluttid' },
     { key: 'results', label: 'Resultater', icon: <AssessmentIcon />, path: '/results' },
-    { key: 'confirmation', label: 'Startbekreftelse', icon: <CheckCircleIcon />, path: '/confirmation' }
+    { key: 'admin', label: 'Admin', icon: <AdminPanelSettingsIcon />, path: '/admin' }
   ];
 
   const handleNavigate = (path: string) => {

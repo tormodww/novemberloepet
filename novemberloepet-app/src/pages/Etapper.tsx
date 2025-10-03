@@ -6,15 +6,16 @@ import { useEtappeContext } from '../context/EtappeContext';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {
-  const { etapper, updateEtappenavn, updateIdealtid, resetEtapper } = useEtappeContext();
+  const { etapper, updateEtappenavn, updateIdealtid, resetEtapper, handleSaveDefaultEtapper, reloadEtapper, loadingEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
   const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
   const [saved, setSaved] = useState<Record<number, boolean>>({});
+  const [savingDefaults, setSavingDefaults] = useState(false);
 
   // When etapper change externally, sync local buffer for those not being edited
   useEffect(() => {
     const next: Record<number, string> = {};
-    etapper.forEach(e => {
+    (Array.isArray(etapper) ? etapper : []).forEach(e => {
       next[e.nummer] = e.idealtid || '';
     });
     setLocalIdeal(prev => ({ ...next, ...prev }));
@@ -77,7 +78,7 @@ const Etapper: React.FC = () => {
   const isDirty = (nummer: number) => {
     // When auto-format is off we consider the row dirty if the raw local input differs from stored value.
     const local = localIdeal[nummer] ?? '';
-    const stored = etapper.find(x => x.nummer === nummer)?.idealtid ?? '';
+    const stored = Array.isArray(etapper) ? etapper.find(x => x.nummer === nummer)?.idealtid : '';
     return local !== (stored || '');
   };
 
@@ -95,7 +96,7 @@ const Etapper: React.FC = () => {
 
   const defaultSyncLocalValues = () => {
     const next: Record<number, string> = {};
-    etapper.forEach(e => {
+    (Array.isArray(etapper) ? etapper : []).forEach(e => {
       next[e.nummer] = e.idealtid || '';
     });
     setLocalIdeal(next);
@@ -106,12 +107,41 @@ const Etapper: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleSaveDefaultsClick = async () => {
+    try {
+      setSavingDefaults(true);
+      // Ask context to save default etapper to backend
+      await handleSaveDefaultEtapper();
+      // Reload etapper from backend to pick up saved defaults (if any)
+      await reloadEtapper();
+      // Sync local values with newly loaded etapper list
+      defaultSyncLocalValues();
+    } catch (e) {
+      // ignore here; context already logs errors
+      console.warn('Failed to save default etapper from UI', e);
+    } finally {
+      setSavingDefaults(false);
+    }
+  };
+
   return (
     <Box maxWidth={900} mx="auto">
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
         <Typography variant="h6">Etapper</Typography>
         {/* Auto-format has been disabled intentionally. Switch shown disabled so users see the option but cannot enable it. */}
         <Button variant="outlined" color="secondary" onClick={handleReset}>Tilbakestill til defaults</Button>
+        {/* If there are no etapper, provide a button to persist default etapper to backend */}
+        {(!Array.isArray(etapper) || etapper.length === 0) && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSaveDefaultsClick}
+            disabled={savingDefaults || loadingEtapper}
+            sx={{ ml: 1 }}
+          >
+            Lagre standard etapper til backend
+          </Button>
+        )}
       </Stack>
       <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
         <Table size="small" stickyHeader>
@@ -124,7 +154,7 @@ const Etapper: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {etapper.map((e) => {
+            {(Array.isArray(etapper) ? etapper : []).map((e) => {
               const dirty = isDirty(e.nummer);
               const invalid = isInvalid(e.nummer);
               return (

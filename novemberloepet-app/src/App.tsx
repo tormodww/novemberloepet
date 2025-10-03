@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Route,Routes } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import { DeltagerProvider } from './context/DeltagerContext';
 import { EtappeProvider } from './context/EtappeContext';
+import Admin from './pages/Admin';
 import AlleDeltagere from './pages/AlleDeltagere';
 import Confirmation from './pages/Confirmation';
 import Etapper from './pages/Etapper';
@@ -47,6 +48,7 @@ function App() {
               <Route path="/results" element={<Results />} />
               <Route path="/confirmation" element={<Confirmation />} />
               <Route path="/alle-deltagere" element={<AlleDeltagere />} />
+              <Route path="/admin" element={<Admin />} />
             </Routes>
           </Router>
         </DeltagerProvider>

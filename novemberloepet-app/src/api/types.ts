@@ -4,13 +4,14 @@
 export type EtappeResultat = {
   etappe: number;
   starttid: string;
+  slutttid?: string; // Registrert slutttid for etappen
   maltid: string;
   idealtid: string;
   diff: string;
   status?: DeltagerStatus;
 };
 
-export type DeltagerStatus = 'OK' | 'DNS' | 'DNF' | 'NONE';
+export type DeltagerStatus = 'OK' | 'DNS' | 'DNF' | 'NONE' | 'FINISH';
 
 export type Deltager = {
   startnummer: string;
