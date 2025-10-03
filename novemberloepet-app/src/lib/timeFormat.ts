@@ -20,3 +20,9 @@ export function formatManualFinish(raw: string): string | null {
   const padded = digits.padStart(6,'0');
   return `${padded.slice(0,2)}:${padded.slice(2,4)}:${padded.slice(4,6)}`; // hh:mm:ss
 }
+
+export function fmtTime(ts?: number | null): string {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  return d.toLocaleTimeString();
+}

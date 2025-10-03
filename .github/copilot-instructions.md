@@ -19,30 +19,15 @@
 - Keep side effects inside `useEffect` hooks with proper dependency arrays.
 
 ## Testing
-- Write unit tests with **Jest + React Testing Library**.
-- Prefer `screen.getByRole` or `screen.findByRole` over `getByTestId` when possible.
-
-## Example Patterns
-```tsx
-// Props definition
-type ButtonProps = {
-  label: string;
-  onClick: () => void;
-};
-
-// Functional component
-const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-    >
-      {label}
-    </button>
-  );
-};
-
-export default Button;
+Testoppsettet i prosjektet bruker Vitest som testrunner og React Testing Library for å teste React-komponenter. Matcher-funksjoner fra jest-dom er tilgjengelig globalt via en setup-fil (src/setupTests.ts) som importeres i vitest.config.ts med setupFiles. Testene skrives med describe, it og expect fra Vitest, og bruker screen fra React Testing Library for å finne og verifisere elementer i DOM.
+Oppsummering:
+Testrunner: Vitest (med happy-dom som testmiljø).
+Testbibliotek: React Testing Library.
+Matcher-funksjoner: jest-dom, tilgjengelig globalt via setupTests.ts.
+Konfigurasjon: vitest.config.ts med setupFiles og globals: true.
+Teststruktur: describe/it/expect fra Vitest, screen fra React Testing Library.
+Eksempel: Testfilene importerer kun nødvendige testfunksjoner og komponenter, og matcher-funksjoner som toBeInTheDocument er tilgjengelig uten ekstra import.
+Dette oppsettet gir moderne, robust og lettforståelig testing av React-komponenter med god støtte for DOM-assertions og a11y.
 
 # Refactoring & Code Structure Guidelines
 
@@ -66,31 +51,6 @@ export default Button;
 - Use descriptive commit messages when performing refactors (`refactor: extract useForm hook`).
 - Write tests for refactored logic to ensure nothing breaks.
 
-## Example Refactor Pattern
-
-### Before
-```tsx
-const Form = () => {
-const [value, setValue] = useState("");
-const [error, setError] = useState("");
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!value) {
-    setError("Field required");
-    return;
-  }
-  const res = await fetch("/api/submit", { method: "POST", body: value });
-  if (!res.ok) setError("Error submitting");
-};
-
-return (
-  <form onSubmit={handleSubmit}>
-    <input value={value} onChange={e => setValue(e.target.value)} />
-    {error && <span>{error}</span>}
-  </form>
-);
-};
 
 # Sjekk alltid readme filen for bugs eller TODOs og spør meg om du skal gjøre noe med dem.
 ## Husk å skrive gode commit meldinger som beskriver hva du har gjort og hvorfor.

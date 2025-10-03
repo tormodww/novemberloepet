@@ -5,6 +5,7 @@ import { createDeltagere } from '../api/deltagere';
 import type { Deltager } from '../api/types';
 import { useDeltagerContext } from '../context/DeltagerContext';
 import { usePersistentState } from '../hooks/usePersistentState';
+import { validateEmail, validateTelefon } from '../utils/validation';
 
 const classes = [
   'Oldtimer',
@@ -63,21 +64,6 @@ const Registration: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deltagere.length]);
-
-  const validateEmail = (email?: string) => {
-    if (!email) return '';
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email) ? '' : 'Ugyldig e-postadresse';
-  };
-  const validateTelefon = (tel?: string) => {
-    if (!tel) return '';
-    // Accept +47 or national, digits, spaces, hyphens; at least 6 digits
-    const digits = tel.replace(/[^0-9]/g, '');
-    if (digits.length < 6) return 'Telefonnummer for kort';
-    // Fjernet unødvendig escape av '-'
-    const re = /^\+?[0-9 -]+$/;
-    return re.test(tel) ? '' : 'Ugyldig telefonnummer';
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

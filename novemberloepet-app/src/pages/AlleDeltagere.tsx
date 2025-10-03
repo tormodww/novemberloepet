@@ -1,7 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
 
-const AlleDeltagere: React.FC = () => {
+type Props = object;
+
+const AlleDeltagere: React.FC<Props> = () => {
   return (
     <Box maxWidth={800} mx="auto">
       {/* Unescaped quotes fjernet for å unngå react/no-unescaped-entities */}
