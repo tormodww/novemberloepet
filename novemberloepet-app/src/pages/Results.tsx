@@ -5,11 +5,16 @@ import React, { useState } from 'react';
 import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 
-const ETAPPER = 5; // Antall etapper, kan endres etter behov
-
 const Results: React.FC = () => {
   const { deltagere, updateResultater: _updateResultater, addDeltager: _addDeltager, editDeltager } = useDeltagerContext();
   const { etapper } = useEtappeContext();
+  const numEtapper = etapper.length;
+
+  // Debug output: log deltagere context data
+  React.useEffect(() => {
+    console.log('DEBUG: deltagere context', JSON.stringify(deltagere, null, 2));
+  }, [deltagere]);
+
   // Grupper deltagere per klasse
   const grupper: { [klasse: string]: typeof deltagere } = {};
   deltagere.forEach((d) => {
@@ -30,7 +35,7 @@ const Results: React.FC = () => {
     try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setEditNavn(d.navn);
     setEditResultater(
-      Array.from({ length: ETAPPER }, (_, i) =>
+      Array.from({ length: numEtapper }, (_, i) =>
         d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' }
       )
     );
@@ -77,37 +82,44 @@ const Results: React.FC = () => {
                   <TableCell>Sykkel</TableCell>
                   <TableCell>Modell</TableCell>
                   <TableCell>Starttid</TableCell>
-                  {Array.from({ length: ETAPPER }, (_, i) => (
+                  {Array.from({ length: numEtapper }, (_, i) => (
                     <TableCell key={i}>{etapper[i]?.navn ? `${etapper[i].navn}` : `Etappe ${i + 1} tid`}</TableCell>
                   ))}
                   <TableCell>Handling</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {list.map((d, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{d.navn}</TableCell>
-                    <TableCell>{d.sykkel}</TableCell>
-                    <TableCell>{d.modell}</TableCell>
-                    <TableCell>{d.starttid}</TableCell>
-                    {Array.from({ length: ETAPPER }, (_, i) => (
-                      <TableCell key={i}>
-                        {d.resultater?.[i]?.status === 'DNS' ? (
-                          <span style={{ color: '#d32f2f', fontWeight: 600 }}>DNS</span>
-                        ) : d.resultater?.[i]?.status === 'DNF' ? (
-                          <span style={{ color: '#ed6c02', fontWeight: 600 }}>DNF</span>
-                        ) : (
-                          d.resultater?.[i]?.maltid || ''
-                        )}
+                {list.map((d, idx) => {
+                  // Normalize resultater array to always have numEtapper entries
+                  const normalizedResultater = Array.from({ length: numEtapper }, (_, i) => {
+                    const found = d.resultater?.find(r => r.etappe === i + 1);
+                    return found || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' };
+                  });
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell>{d.navn}</TableCell>
+                      <TableCell>{d.sykkel}</TableCell>
+                      <TableCell>{d.modell}</TableCell>
+                      <TableCell>{d.starttid}</TableCell>
+                      {normalizedResultater.map((r, i) => (
+                        <TableCell key={i}>
+                          {r.status === 'DNS' ? (
+                            <span style={{ color: '#d32f2f', fontWeight: 600 }}>DNS</span>
+                          ) : r.status === 'DNF' ? (
+                            <span style={{ color: '#ed6c02', fontWeight: 600 }}>DNF</span>
+                          ) : (
+                            r.maltid || ''
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <IconButton onClick={() => handleEdit(d)} size="small"><EditIcon /></IconButton>
+                        <IconButton onClick={() => handleEditInfo(d)} size="small" color="primary"><EditIcon fontSize="small" /></IconButton>
+                        {/* delete moved to Startliste */}
                       </TableCell>
-                    ))}
-                    <TableCell>
-                      <IconButton onClick={() => handleEdit(d)} size="small"><EditIcon /></IconButton>
-                      <IconButton onClick={() => handleEditInfo(d)} size="small" color="primary"><EditIcon fontSize="small" /></IconButton>
-                      {/* delete moved to Startliste */}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
