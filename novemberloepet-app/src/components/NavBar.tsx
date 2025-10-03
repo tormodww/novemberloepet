@@ -22,30 +22,28 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-interface NavBarProps {
-  onNavigate: (page: string) => void;
-  currentPage: string;
-}
-
-const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
+const NavBar: React.FC = () => {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const navItems: { key: string; label: string; icon: React.ReactNode }[] = [
-    { key: 'home', label: 'Hjem', icon: <HomeIcon /> },
-    { key: 'etapper', label: 'Etapper', icon: <ListAltIcon /> },
-    { key: 'registration', label: 'Registrering', icon: <CheckCircleIcon /> },
-    { key: 'startliste', label: 'Startliste', icon: <FormatListNumberedIcon /> },
-    { key: 'starttime', label: 'Registrer starttid', icon: <PlayArrowIcon /> },
-    { key: 'finishtime', label: 'Registrer slutttid', icon: <FlagIcon /> },
-    { key: 'results', label: 'Resultater', icon: <AssessmentIcon /> },
-    { key: 'confirmation', label: 'Startbekreftelse', icon: <CheckCircleIcon /> }
+  const navItems: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
+    { key: 'home', label: 'Hjem', icon: <HomeIcon />, path: '/' },
+    { key: 'etapper', label: 'Etapper', icon: <ListAltIcon />, path: '/etapper' },
+    { key: 'registration', label: 'Registrering', icon: <CheckCircleIcon />, path: '/registration' },
+    { key: 'startliste', label: 'Startliste', icon: <FormatListNumberedIcon />, path: '/startliste' },
+    { key: 'starttime', label: 'Registrer starttid', icon: <PlayArrowIcon />, path: '/starttid' },
+    { key: 'finishtime', label: 'Registrer slutttid', icon: <FlagIcon />, path: '/sluttid' },
+    { key: 'results', label: 'Resultater', icon: <AssessmentIcon />, path: '/results' },
+    { key: 'confirmation', label: 'Startbekreftelse', icon: <CheckCircleIcon />, path: '/confirmation' }
   ];
 
-  const handleNavigate = (key: string) => {
-    onNavigate(key);
+  const handleNavigate = (path: string) => {
+    navigate(path);
     setDrawerOpen(false);
   };
 
@@ -56,8 +54,6 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Novemberløpet 2025
           </Typography>
-
-          {/* Small screens: show icon buttons (icons only) and a drawer for full labels */}
           {isSmall ? (
             <>
               <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
@@ -65,8 +61,8 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
                   <Tooltip key={item.key} title={item.label} placement="bottom">
                     <span>
                       <IconButton
-                        color={currentPage === item.key ? 'secondary' : 'inherit'}
-                        onClick={() => handleNavigate(item.key)}
+                        color={location.pathname === item.path ? 'secondary' : 'inherit'}
+                        onClick={() => handleNavigate(item.path)}
                         size="large"
                         aria-label={item.label}
                       >
@@ -95,8 +91,8 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
                   <List>
                     {navItems.map(item => (
                       <ListItem key={item.key} disablePadding>
-                        <ListItemButton selected={currentPage === item.key} onClick={() => handleNavigate(item.key)}>
-                          <ListItemIcon sx={{ color: currentPage === item.key ? 'secondary.main' : 'inherit' }}>{item.icon}</ListItemIcon>
+                        <ListItemButton selected={location.pathname === item.path} onClick={() => handleNavigate(item.path)}>
+                          <ListItemIcon sx={{ color: location.pathname === item.path ? 'secondary.main' : 'inherit' }}>{item.icon}</ListItemIcon>
                           <ListItemText primary={item.label} />
                         </ListItemButton>
                       </ListItem>
@@ -106,20 +102,19 @@ const NavBar: React.FC<NavBarProps> = ({ onNavigate, currentPage }) => {
               </Drawer>
             </>
           ) : (
-            /* Large screens: show full text buttons with active styling */
-            <>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               {navItems.map(item => (
                 <Button
                   key={item.key}
-                  color={currentPage === item.key ? 'secondary' : 'inherit'}
-                  variant={currentPage === item.key ? 'contained' : 'text'}
-                  onClick={() => handleNavigate(item.key)}
-                  sx={{ ml: 1 }}
+                  color={location.pathname === item.path ? 'secondary' : 'inherit'}
+                  startIcon={item.icon}
+                  onClick={() => handleNavigate(item.path)}
+                  sx={{ fontWeight: location.pathname === item.path ? 700 : 400 }}
                 >
                   {item.label}
                 </Button>
               ))}
-            </>
+            </Box>
           )}
         </Toolbar>
       </AppBar>

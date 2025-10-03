@@ -61,14 +61,10 @@ const Confirmation: React.FC = () => {
     <Box maxWidth={800} mx="auto" p={4}>
       {/* Ikke med i utskrift */}
       <Box className="no-print" sx={{
-        position: 'sticky',
-        top: { xs: '56px', sm: '64px' },
         background: 'background.paper',
-        zIndex: 1200,
         pt: 1,
         pb: 1,
-        mb: 2,
-        boxShadow: 1
+        mb: 2
       }}>
         <TextField
           select

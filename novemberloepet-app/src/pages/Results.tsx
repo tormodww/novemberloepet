@@ -1,5 +1,5 @@
 import EditIcon from '@mui/icons-material/Edit';
-import { Box, Button,Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button,Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import React, { useState } from 'react';
 
 import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
@@ -23,14 +23,15 @@ const Results: React.FC = () => {
   const [_resultater, setResultater] = useState<EtappeResultat[]>([]);
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editInfo, setEditInfo] = useState<Partial<Deltager>>({});
+  const [editResultater, setEditResultater] = useState<EtappeResultat[]>([]);
 
   const handleEdit = (d: Deltager) => {
     // blur any focused element before opening dialog so it's not hidden by aria-hidden
     try { (document.activeElement as HTMLElement | null)?.blur(); } catch (e) {}
     setEditNavn(d.navn);
-    setResultater(
+    setEditResultater(
       Array.from({ length: ETAPPER }, (_, i) =>
-        d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }
+        d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' }
       )
     );
     setOpen(true);
@@ -47,9 +48,18 @@ const Results: React.FC = () => {
     setEditInfo((prev: Partial<Deltager>) => ({ ...prev, [field]: value }));
   };
 
+  const handleResultatStatusChange = (etappeIdx: number, status: string) => {
+    setEditResultater(prev => prev.map((r, i) => i === etappeIdx ? { ...r, status } : r));
+  };
+
   const handleEditInfoSave = () => {
     if (editNavn && editInfo) editDeltager(editNavn, editInfo);
     setEditInfoOpen(false);
+  };
+
+  const handleEditSave = () => {
+    if (editNavn && editResultater) editDeltager(editNavn, { resultater: editResultater });
+    setOpen(false);
   };
 
   return (
@@ -81,7 +91,15 @@ const Results: React.FC = () => {
                     <TableCell>{d.modell}</TableCell>
                     <TableCell>{d.starttid}</TableCell>
                     {Array.from({ length: ETAPPER }, (_, i) => (
-                      <TableCell key={i}>{d.resultater?.[i]?.maltid || ''}</TableCell>
+                      <TableCell key={i}>
+                        {d.resultater?.[i]?.status === 'DNS' ? (
+                          <span style={{ color: '#d32f2f', fontWeight: 600 }}>DNS</span>
+                        ) : d.resultater?.[i]?.status === 'DNF' ? (
+                          <span style={{ color: '#ed6c02', fontWeight: 600 }}>DNF</span>
+                        ) : (
+                          d.resultater?.[i]?.maltid || ''
+                        )}
+                      </TableCell>
                     ))}
                     <TableCell>
                       <IconButton onClick={() => handleEdit(d)} size="small"><EditIcon /></IconButton>
@@ -110,6 +128,47 @@ const Results: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setEditInfoOpen(false)}>Avbryt</Button>
           <Button onClick={handleEditInfoSave} variant="contained">Lagre</Button>
+        </DialogActions>
+      </Dialog>
+      {/* Rediger resultater dialog */}
+      <Dialog open={_open} onClose={() => setOpen(false)}>
+        <DialogTitle>Rediger etapperesultater</DialogTitle>
+        <DialogContent>
+          {editResultater.map((r, i) => (
+            <Box key={i} sx={{ mb: 2 }}>
+              <Typography variant="subtitle2">Etappe {r.etappe}</Typography>
+              <TextField
+                label="Starttid"
+                value={r.starttid || ''}
+                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, starttid: e.target.value } : res))}
+                fullWidth
+                margin="dense"
+              />
+              <TextField
+                label="Sluttid"
+                value={r.maltid || ''}
+                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, maltid: e.target.value } : res))}
+                fullWidth
+                margin="dense"
+              />
+              <FormControl fullWidth margin="dense">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  label="Status"
+                  value={r.status || 'NONE'}
+                  onChange={e => handleResultatStatusChange(i, e.target.value as string)}
+                >
+                  <MenuItem value="NONE">Ingen</MenuItem>
+                  <MenuItem value="DNS">DNS</MenuItem>
+                  <MenuItem value="DNF">DNF</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Avbryt</Button>
+          <Button onClick={handleEditSave} variant="contained">Lagre</Button>
         </DialogActions>
       </Dialog>
     </Box>
