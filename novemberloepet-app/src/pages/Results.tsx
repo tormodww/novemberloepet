@@ -36,7 +36,7 @@ const Results: React.FC = () => {
     setEditNavn(d.navn);
     setEditResultater(
       Array.from({ length: numEtapper }, (_, i) =>
-        d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus }
+        d.resultater?.[i] || { etappe: i + 1, starttid: '', sluttTid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus }
       )
     );
     setOpen(true);
@@ -95,7 +95,7 @@ const Results: React.FC = () => {
                   // Normalize resultater array to always have numEtapper entries
                   const normalizedResultater = Array.from({ length: numEtapper }, (_, i) => {
                     const found = d.resultater?.find(r => r.etappe === i + 1);
-                    return found || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus };
+                    return found || { etappe: i + 1, starttid: '', sluttTid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus };
                   });
                   return (
                     <TableRow key={idx}>
@@ -110,8 +110,8 @@ const Results: React.FC = () => {
                           ) : r.status === 'DNF' ? (
                             <span style={{ color: '#ed6c02', fontWeight: 600 }}>DNF</span>
                           ) : (
-                            // Prefer sluttTid (used by FinishTimeRegister) and fall back to legacy maltid
-                            ((r as any).sluttTid || r.maltid || '')
+                            // Use canonical sluttTid
+                            ((r as any).sluttTid || '')
                           )}
                         </TableCell>
                       ))}
@@ -161,10 +161,9 @@ const Results: React.FC = () => {
               />
               <TextField
                 label="Slutt-tid"
-                // Ensure both legacy `maltid` and the newer `sluttTid` are updated so other parts of the app (which
-                // read either field) will see the change immediately.
-                value={(r as any).sluttTid || r.maltid || ''}
-                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, maltid: e.target.value, sluttTid: e.target.value } : res))}
+                // Use canonical sluttTid
+                value={(r as any).sluttTid || ''}
+                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, sluttTid: e.target.value } : res))}
                 fullWidth
                 margin="dense"
               />

@@ -27,7 +27,8 @@ export function useFinishTimeLogic() {
 
   const existingEtappeFinish = (() => {
     if (!valgtDeltager || etappe == null) return '';
-    return valgtDeltager.resultater?.[etappe - 1]?.maltid || '';
+    // Use canonical sluttTid
+    return valgtDeltager.resultater?.[etappe - 1]?.sluttTid || '';
   })();
   const existingEtappeStatus = (() => {
     if (!valgtDeltager || etappe == null) return '';

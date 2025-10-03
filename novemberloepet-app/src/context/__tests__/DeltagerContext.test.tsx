@@ -14,7 +14,7 @@ const localStorageMock = (() => {
     removeItem: (key: string) => { delete store[key]; },
   };
 })();
-global.localStorage = localStorageMock as any;
+(global as any).localStorage = localStorageMock;
 
 // Mock backend
 vi.mock('../../api/deltagere', () => ({
@@ -28,7 +28,7 @@ vi.mock('../../api/deltagere', () => ({
       adresse: '',
       postnr: '',
       nasjon: '',
-      resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }))
+      resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', sluttTid: '', idealtid: '', diff: '' }))
     }
   ])),
 }));
@@ -44,7 +44,7 @@ describe('DeltagerContext', () => {
         adresse: '',
         postnr: '',
         nasjon: '',
-        resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }))
+        resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', sluttTid: '', idealtid: '', diff: '' }))
       }
     ]));
   });
@@ -106,8 +106,8 @@ describe('DeltagerContext', () => {
       await ctx.updateFinishTime('1', etappe, '12:34');
     });
     await act(() => Promise.resolve());
-    expect(ctx.deltagere.find((d: any) => d.startnummer === '1')?.resultater[etappe - 1].maltid).toBe('12:34');
+    expect(ctx.deltagere.find((d: any) => d.startnummer === '1')?.resultater[etappe - 1].sluttTid).toBe('12:34');
     const stored = JSON.parse(localStorage.getItem('novemberloepet.deltagere.v1') || '[]');
-    expect(stored.find((d: any) => d.startnummer === '1')?.resultater[etappe - 1].maltid).toBe('12:34');
+    expect(stored.find((d: any) => d.startnummer === '1')?.resultater[etappe - 1].sluttTid).toBe('12:34');
   });
 });

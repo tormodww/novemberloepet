@@ -4,8 +4,9 @@
 export type EtappeResultat = {
   etappe: number;
   starttid: string;
-  sluttTid?: string; // Registrert slutt-tid for etappen
-  maltid: string;
+  sluttTid?: string; // Registrert slutt-tid for etappen (canonical)
+  // Legacy/compatibility: some code/tests still reference `maltid` — keep it optional
+  maltid?: string;
   idealtid: string;
   diff: string;
   status?: DeltagerStatus;

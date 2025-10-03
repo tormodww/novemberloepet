@@ -16,7 +16,7 @@ type DeltagerContextType = {
   setMultipleDeltagerStatus: (startnummerList: string[], status: DeltagerStatus) => void;
   updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
   updateStartTime: (startnummer: string, etappe: number, starttid: string) => Promise<boolean>;
-  updateFinishTime: (startnummer: string, etappe: number, maltid: string) => Promise<boolean>;
+  updateFinishTime: (startnummer: string, etappe: number, sluttTid: string) => Promise<boolean>;
   deleteStartTime: (startnummer: string, etappe: number) => Promise<boolean>;
   deleteFinishTime: (startnummer: string, etappe: number) => Promise<boolean>;
   pendingOps: PendingOp[];
@@ -207,14 +207,14 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       if (d.startnummer !== startnummer) return d;
       const results = Array.isArray(d.resultater) ? [...d.resultater] : [];
       const idx = Math.max(0, etappe - 1);
-      const existing = results[idx] || { etappe, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' } as EtappeResultat;
+      const existing = results[idx] || { etappe, starttid: '', sluttTid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' } as EtappeResultat;
       // When setting DNS/DNF/NONE we want to ensure any per-etappe times are cleared so the UI/backend remain consistent
       const shouldClearTimes = status === 'DNS' || status === 'DNF' || status === 'NONE';
       const next = {
         ...existing,
         status,
         starttid: shouldClearTimes ? '' : (existing.starttid || ''),
-        sluttTid: shouldClearTimes ? '' : ((existing as any).sluttTid || (existing.maltid || ''))
+        sluttTid: shouldClearTimes ? '' : ((existing as any).sluttTid || '')
       } as EtappeResultat;
       results[idx] = next;
       updatedResults = results;
@@ -372,7 +372,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
       const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
-      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', sluttTid: '', maltid: '', idealtid: '', diff: '' } as EtappeResultat);
       const idx = etappe - 1;
       results[idx] = { ...results[idx], starttid };
       updatedResults = results;
@@ -384,33 +384,32 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
   };
 
   // Update finish time for a deltager's etappe
-  const updateFinishTime = useCallback(async (startnummer: string, etappe: number, maltid: string): Promise<boolean> => {
-    let updatedResults: EtappeResultat[] | undefined;
-    setDeltagere(prev => prev.map(d => {
-      if (d.startnummer !== startnummer) return d;
-      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
-      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
-      const idx = etappe - 1;
-      // The UI expects `sluttTid` for displaying a registered finish time.
-      // Ensure we write the same property locally so the dropdown and details show the updated value.
-      // Keep `maltid` untouched (legacy field) and set `sluttTid` instead.
-      (results[idx] as any) = { ...results[idx], sluttTid: maltid } as EtappeResultat;
-      updatedResults = results;
-      return { ...d, resultater: results };
-    }));
-    // Sync with backend
-    try {
-      const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
-      const ok = await updateDeltager(startnummer, payload);
-      if (!ok) throw new Error('Backend update failed');
-      return true;
-    } catch (e) {
-      // Optionally enqueue for retry
-      // Use `sluttTid` in the queued payload so retry attempts update the same field the UI reads.
-      enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, sluttTid: maltid }, attempts: 0 });
-      return false;
-    }
-  }, [enqueueOp, updateDeltager]);
+  const updateFinishTime = useCallback(async (startnummer: string, etappe: number, sluttTid: string): Promise<boolean> => {
+     let updatedResults: EtappeResultat[] | undefined;
+     setDeltagere(prev => prev.map(d => {
+       if (d.startnummer !== startnummer) return d;
+       const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
+       const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', sluttTid: '', maltid: '', idealtid: '', diff: '' } as EtappeResultat);
+       const idx = etappe - 1;
+       // The UI expects `sluttTid` for displaying a registered finish time.
+       // Ensure we write the `sluttTid` property locally so the dropdown and details show the updated value.
+      (results[idx] as any) = { ...results[idx], sluttTid } as EtappeResultat;
+       updatedResults = results;
+       return { ...d, resultater: results };
+     }));
+     // Sync with backend
+     try {
+       const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+       const ok = await updateDeltager(startnummer, payload);
+       if (!ok) throw new Error('Backend update failed');
+       return true;
+     } catch (e) {
+       // Optionally enqueue for retry
+       // Use `sluttTid` in the queued payload so retry attempts update the same field the UI reads.
+      enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, sluttTid }, attempts: 0 });
+       return false;
+     }
+   }, [enqueueOp, updateDeltager]);
 
   // Delete finish time for a deltager's etappe
   const deleteFinishTime = useCallback(async (startnummer: string, etappe: number): Promise<boolean> => {

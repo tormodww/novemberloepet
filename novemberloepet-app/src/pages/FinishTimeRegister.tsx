@@ -124,7 +124,7 @@ const FinishTimeRegister: React.FC = () => {
         if (!prev) return prev;
         const results = Array.isArray(prev.resultater) ? [...prev.resultater] : [];
         const idx = Math.max(0, valgtEtappe - 1);
-        const existing = results[idx] || { etappe: idx + 1, starttid: '', maltid: '', idealtid: '', diff: '' } as any;
+        const existing = results[idx] || { etappe: idx + 1, starttid: '', sluttTid: '', idealtid: '', diff: '' } as any;
         results[idx] = { ...existing, sluttTid: formatted } as any;
         return { ...prev, resultater: results } as Deltager;
       });

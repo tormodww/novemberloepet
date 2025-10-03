@@ -29,7 +29,7 @@ vi.mock('../../api/deltagere', () => ({
       adresse: '',
       postnr: '',
       nasjon: '',
-      resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' }))
+      resultater: Array.from({ length: 10 }, (_, i) => ({ etappe: i + 1, starttid: '', sluttTid: '', idealtid: '', diff: '' }))
     }
   ])),
 }));
@@ -53,7 +53,7 @@ const mockDeltagere = [{
   resultater: Array.from({ length: 10 }, (_, i) => ({
     etappe: i + 1,
     starttid: '',
-    maltid: '',
+    sluttTid: '',
     idealtid: '',
     diff: ''
   }))
@@ -103,7 +103,7 @@ describe('FinishTimeRegister', () => {
 
       await screen.findByText((content) => content.includes('registrert for #1'));
       expect(screen.getByText((content) => content.includes('registrert for #1'))).toBeTruthy();
-      expect(localStorage.getItem(STORAGE_KEY)).toMatch(/maltid/);
+      expect(localStorage.getItem(STORAGE_KEY)).toMatch(/sluttTid/);
     } finally {
       unmount();
     }
@@ -146,8 +146,8 @@ describe('FinishTimeRegister', () => {
 
       await screen.findByText((content) => content.includes('registrert for #1'));
       expect(screen.getByText((content) => content.includes('registrert for #1'))).toBeTruthy();
-      // maltid should not be empty: look for "maltid":"<one or more non-quote chars>"
-      expect(localStorage.getItem(STORAGE_KEY)).toMatch(/"maltid":"[^"]+"/);
+      // sluttTid should not be empty: look for "sluttTid":"<one or more non-quote chars>"
+      expect(localStorage.getItem(STORAGE_KEY)).toMatch(/"sluttTid":"[^"]+"/);
     } finally {
       unmount();
     }
