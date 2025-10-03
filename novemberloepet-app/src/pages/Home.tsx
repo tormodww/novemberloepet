@@ -146,44 +146,72 @@ const Home: React.FC = () => {
           Administrasjonssystem for tidtaking og deltageradministrasjon
         </Typography>
 
-        <Grid container spacing={3}>
+        {/* Main Action Grid */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
           {quickActions.map((action) => (
             <Grid item xs={12} sm={6} md={4} key={action.path}>
               <Paper
-                elevation={3}
+                elevation={2}
                 sx={{
                   p: 3,
-                  height: '100%',
+                  height: 200,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  transition: 'all 0.3s ease',
+                  transition: 'all 0.2s ease-in-out',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
                   '&:hover': {
-                    elevation: 6,
-                    transform: 'translateY(-2px)',
+                    elevation: 4,
+                    transform: 'translateY(-4px)',
+                    borderColor: `${action.color}.main`,
+                    boxShadow: (theme) => `0 8px 25px -8px ${theme.palette[action.color].main}40`,
                   },
                 }}
                 onClick={() => navigate(action.path)}
               >
-                <Box sx={{ color: `${action.color}.main`, mb: 2 }}>
-                  {action.icon}
+                <Box 
+                  sx={{ 
+                    color: `${action.color}.main`, 
+                    mb: 2,
+                    p: 1.5,
+                    borderRadius: '50%',
+                    backgroundColor: `${action.color}.light`,
+                    opacity: 0.1
+                  }}
+                >
+                  <Box sx={{ color: `${action.color}.main`, position: 'relative', zIndex: 1 }}>
+                    {action.icon}
+                  </Box>
                 </Box>
-                <Typography variant="h6" component="h2" gutterBottom>
+                <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
                   {action.title}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flexGrow: 1 }}>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ mb: 2, flexGrow: 1, lineHeight: 1.4 }}
+                >
                   {action.description}
                 </Typography>
                 <Button
                   variant="contained"
                   color={action.color}
+                  size="small"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigate(action.path);
                   }}
-                  sx={{ mt: 'auto' }}
+                  sx={{ 
+                    mt: 'auto',
+                    minWidth: 100,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
                 >
                   Åpne
                 </Button>
@@ -192,48 +220,201 @@ const Home: React.FC = () => {
           ))}
         </Grid>
 
-        <Box sx={{ mt: 6, p: 3, backgroundColor: 'grey.50', borderRadius: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Hurtigstart
+        {/* Admin Actions Section */}
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 3, 
+            mb: 4, 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+            Administrasjon
           </Typography>
-          <Typography variant="body1" paragraph>
-            For å komme i gang med Novemberløpet 2025:
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" component="div">
-                <strong>1. Registrer deltagere</strong> - Legg til alle deltagere i systemet
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body1" sx={{ mb: 1, fontWeight: 500 }}>
+                Dataadministrasjon
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Administrer lokale data og synkroniser med back4app
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" component="div">
-                <strong>2. Konfigurer etapper</strong> - Sett opp etapper og idealtider
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" component="div">
-                <strong>3. Registrer starttider</strong> - Logg starttider for hver etappe
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" component="div">
-                <strong>4. Registrer sluttider</strong> - Logg sluttider og generer resultater
-              </Typography>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => setSaveDialogOpen(true)}
+                  disabled={isSaving}
+                  startIcon={isSaving ? <CircularProgress size={16} /> : <CloudDownloadIcon />}
+                  sx={{ 
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  {isSaving ? 'Lagrer...' : 'Lagre etapper'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setClearDialogOpen(true)}
+                  sx={{ 
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  Tøm data
+                </Button>
+              </Box>
             </Grid>
           </Grid>
-        </Box>
+        </Paper>
 
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setClearDialogOpen(true)}
-          >
-            Tøm lokale data
-          </Button>
-        </Box>
+        {/* Quick Start Guide */}
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 3, 
+            borderRadius: 2,
+            backgroundColor: 'grey.50',
+            border: '1px solid',
+            borderColor: 'grey.200'
+          }}
+        >
+          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+            Hurtigstart
+          </Typography>
+          <Typography variant="body1" paragraph color="text.secondary">
+            Følg disse trinnene for å komme i gang med Novemberløpet 2025:
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                <Box 
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: '50%', 
+                    backgroundColor: 'primary.main', 
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    mr: 2,
+                    flexShrink: 0
+                  }}
+                >
+                  1
+                </Box>
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Registrer deltagere
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Legg til alle deltagere i systemet med startnummer og informasjon
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                <Box 
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: '50%', 
+                    backgroundColor: 'warning.main', 
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    mr: 2,
+                    flexShrink: 0
+                  }}
+                >
+                  2
+                </Box>
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Konfigurer etapper
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Sett opp etapper med navn og idealtider for løpet
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                <Box 
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: '50%', 
+                    backgroundColor: 'primary.main', 
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    mr: 2,
+                    flexShrink: 0
+                  }}
+                >
+                  3
+                </Box>
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Registrer starttider
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Logg starttider for deltagere på hver etappe
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                <Box 
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: '50%', 
+                    backgroundColor: 'success.main', 
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    mr: 2,
+                    flexShrink: 0
+                  }}
+                >
+                  4
+                </Box>
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Registrer sluttider
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Logg sluttider og generer automatiske resultater
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
 
+        {/* Dialogs remain the same */}
         <Dialog
           open={clearDialogOpen}
           onClose={() => setClearDialogOpen(false)}
@@ -265,18 +446,6 @@ const Home: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
-
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => setSaveDialogOpen(true)}
-            disabled={isSaving}
-            startIcon={isSaving ? <CircularProgress size={20} /> : <CloudDownloadIcon />}
-          >
-            {isSaving ? 'Lagrer...' : 'Lagre etapper til back4app'}
-          </Button>
-        </Box>
 
         <Dialog
           open={saveDialogOpen}
