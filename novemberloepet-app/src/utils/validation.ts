@@ -31,35 +31,60 @@ export function registerManualFinishTime(rawTime: string): string {
 }
 
 /**
- * Validates an email address format.
- * @param email - The email address to validate.
- * @returns True if the email is valid, false otherwise.
+ * Validates an email address format without using RegExp.
+ * Basic validation: must contain exactly one '@', non-empty local part,
+ * domain contains at least one '.', and top-level domain has length >= 2.
  */
 export function validateEmail(email: string): boolean {
-  // Enkel og robust e-postvalidering
-  return /^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/.test(email.trim());
+  const trimmed = (email || '').trim();
+  if (!trimmed) return false;
+  const atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0) return false; // no @ or empty local part
+  // ensure there's only one '@'
+  if (trimmed.indexOf('@', atIndex + 1) !== -1) return false;
+  const local = trimmed.slice(0, atIndex);
+  const domain = trimmed.slice(atIndex + 1);
+  if (!local || !domain) return false;
+  const dotIndex = domain.indexOf('.');
+  if (dotIndex <= 0) return false; // no dot or dot is first char
+  const lastDot = domain.lastIndexOf('.');
+  const tld = domain.slice(lastDot + 1);
+  if (!tld || tld.length < 2) return false;
+  return true;
 }
 
 /**
- * Validates a Norwegian phone number (8 digits, can start with country code).
- * @param telefon - The phone number to validate.
- * @returns True if valid, false otherwise.
+ * Validates a Norwegian phone number without using RegExp.
+ * Acceptable forms:
+ *  - 8 digits: e.g. "22334455"
+ *  - with country prefix +47 or 0047: "+4722334455" or "004722334455"
+ * Spaces, dashes and parentheses are ignored.
  */
 export function validateTelefon(telefon: string): boolean {
-  // Tillater 8 siffer, med eller uten mellomrom, og +47/0047-prefiks
-  const cleaned = telefon.replace(/\s+/g, '');
-  return (
-    /^((\+47|0047)?\d{8})$/.test(cleaned)
-  );
-}
+  if (!telefon) return false;
+  // remove common separators (space, dash, parentheses) without regex
+  let s = telefon.split(' ').join('');
+  s = s.split('-').join('');
+  s = s.split('(').join('').split(')').join('');
 
-// Example usage
-console.log(registerManualFinishTime('123456')); // Finish time registered: 12:34:56
-console.log(registerManualFinishTime('1234'));   // Finish time registered: 00:12:34
-console.log(registerManualFinishTime('12'));     // Invalid time format. Please use hh:mm:ss
-console.log(validateEmail('test@example.com')); // true
-console.log(validateEmail('invalid-email'));    // false
-console.log(validateTelefon('12345678'));       // true
-console.log(validateTelefon('+4712345678'));    // true
-console.log(validateTelefon('004712345678'));   // true
-console.log(validateTelefon('invalid-telefon')); // false
+  // handle international prefix
+  let normalized = s;
+  if (normalized.startsWith('+')) {
+    normalized = normalized.slice(1);
+  } else if (normalized.startsWith('00')) {
+    normalized = normalized.slice(2);
+  }
+
+  // All remaining characters must be digits
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized.charAt(i);
+    if (ch < '0' || ch > '9') return false;
+  }
+
+  // If starts with country code '47', strip it for local-length check
+  let digits = normalized;
+  if (digits.startsWith('47')) digits = digits.slice(2);
+
+  // Valid Norwegian local numbers are 8 digits
+  return digits.length === 8;
+}

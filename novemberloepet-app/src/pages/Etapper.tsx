@@ -6,7 +6,7 @@ import { useEtappeContext } from '../context/EtappeContext';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {
-  const { etapper, updateEtappenavn, updateIdealtid, resetEtapper, handleSaveDefaultEtapper, reloadEtapper, loadingEtapper } = useEtappeContext();
+  const { etapper, updateEtappenavn, updateIdealtid, handleSaveDefaultEtapper, reloadEtapper, loadingEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
   const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
   const [saved, setSaved] = useState<Record<number, boolean>>({});
@@ -89,11 +89,6 @@ const Etapper: React.FC = () => {
     return local !== '' && !parsed.valid;
   };
 
-  const handleReset = () => {
-    resetEtapper();
-    // let useEffect sync localIdeal from context after reset
-  };
-
   const defaultSyncLocalValues = () => {
     const next: Record<number, string> = {};
     (Array.isArray(etapper) ? etapper : []).forEach(e => {
@@ -128,8 +123,6 @@ const Etapper: React.FC = () => {
     <Box maxWidth={900} mx="auto">
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
         <Typography variant="h6">Etapper</Typography>
-        {/* Auto-format has been disabled intentionally. Switch shown disabled so users see the option but cannot enable it. */}
-        <Button variant="outlined" color="secondary" onClick={handleReset}>Tilbakestill til defaults</Button>
         {/* If there are no etapper, provide a button to persist default etapper to backend */}
         {(!Array.isArray(etapper) || etapper.length === 0) && (
           <Button

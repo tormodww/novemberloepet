@@ -79,20 +79,20 @@ const Registration: React.FC = () => {
     }
 
     setForm({ ...form, [name]: value });
-    if (name === 'email') setErrors(prev => ({ ...prev, email: validateEmail(value) }));
-    if (name === 'telefon') setErrors(prev => ({ ...prev, telefon: validateTelefon(value) }));
+    if (name === 'email') setErrors(prev => ({ ...prev, email: validateEmail(value) ? undefined : 'Ugyldig e-postadresse' }));
+    if (name === 'telefon') setErrors(prev => ({ ...prev, telefon: validateTelefon(value) ? undefined : 'Ugyldig telefonnummer' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Validate
-    const emailErr = validateEmail(form.email);
-    const telErr = validateTelefon(form.telefon);
+    const emailOk = validateEmail(form.email);
+    const telOk = validateTelefon(form.telefon);
     // recompute startnummer collision check as final guard
     const startCollision = deltagere.some(d => Number(d.startnummer) === Number(form.startnummer));
     const startErr = startCollision ? 'Startnummeret er allerede registrert' : undefined;
-    setErrors({ email: emailErr ? emailErr : undefined, telefon: telErr ? telErr : undefined, startnummer: startErr });
-    if (emailErr || telErr || startErr) return;
+    setErrors({ email: emailOk ? undefined : 'Ugyldig e-postadresse', telefon: telOk ? undefined : 'Ugyldig telefonnummer', startnummer: startErr });
+    if (!emailOk || !telOk || startErr) return;
     setSaving(true);
     setServerError(null);
 

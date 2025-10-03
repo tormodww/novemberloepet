@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode,useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode,useCallback,useContext, useEffect, useState } from 'react';
 
 import { createEtapper, deleteEtapperById,fetchEtapper, updateEtapperById } from '../api/etapper';
 import type { Etappe } from '../api/types'; // Rettet: tidligere '../api' ga IDE-feil om tsconfig-inkludering
@@ -50,27 +50,28 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Always fetch etapper from backend on mount
   useEffect(() => {
-    setLoadingEtapper(true);
-    fetchEtapper()
-      .then(data => {
-        if (Array.isArray(data) && data.length === 0) {
+    // Use reloadEtapper() which already handles the different backend response shapes
+    (async () => {
+      setLoadingEtapper(true);
+      try {
+        const ok = await reloadEtapper();
+        if (!ok) {
+          // nothing found on backend -> seed UI with defaults and prompt user to save
           setEtapper(defaultEtapper);
           setShowSaveDefaultPrompt(true);
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEtapper)); } catch {}
         } else {
-          setEtapper(data);
           setShowSaveDefaultPrompt(false);
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        setLoadingEtapper(false);
-        setEtapperError(null);
-      })
-      .catch(_err => {
+      } catch (e) {
         setEtapper([]);
-        setLoadingEtapper(false);
         setEtapperError('Kunne ikke hente etapper fra backend');
         setShowSaveDefaultPrompt(false);
-      });
-  }, []);
+      } finally {
+        setLoadingEtapper(false);
+      }
+    })();
+  }, [reloadEtapper]);
 
   // Optionally keep localStorage updated for offline cache, but never use as initial source
   useEffect(() => {
@@ -81,7 +82,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [etapper]);
 
-  const loadFromProxy = async (attempt = 1): Promise<boolean> => {
+  const loadFromProxy = useCallback(async (attempt = 1): Promise<boolean> => {
     setLoadingEtapper(true);
     setEtapperError(null);
     try {
@@ -90,7 +91,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // Log the actual response for debugging
       console.log('API Response from /api/etapper:', json);
       
-      // Handle back4app format: {"results": [...]}
+      // Handle back4app format: {"results": [...]} 
       if (json && typeof json === 'object' && 'results' in json && Array.isArray((json as any).results)) {
         const results = (json as any).results;
         if (results.length > 0) {
@@ -162,11 +163,11 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setLoadingEtapper(false);
       return false;
     }
-  };
+  }, []);
 
-  const reloadEtapper = async (): Promise<boolean> => {
+  const reloadEtapper = useCallback(async (): Promise<boolean> => {
     return loadFromProxy(1);
-  };
+  }, [loadFromProxy]);
 
   // sync to localStorage whenever etapper changes
   useEffect(() => {
@@ -222,12 +223,17 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const handleSaveDefaultEtapper = async () => {
     setLoadingEtapper(true);
     try {
-      await createEtapper(defaultEtapper);
+      const res = await createEtapper(defaultEtapper);
+      // If backend returned created object with etapper array, use it; otherwise fall back to defaults
+      const list = res && (Array.isArray((res as any).etapper) ? (res as any).etapper as Etappe[] : defaultEtapper);
+      setEtapper(list);
+      setRemoteId((res && ((res as any).objectId || (res as any).id)) ?? null);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
       setShowSaveDefaultPrompt(false);
-      setLoadingEtapper(false);
       setEtapperError(null);
     } catch (e) {
       setEtapperError('Kunne ikke lagre default etapper til backend');
+    } finally {
       setLoadingEtapper(false);
     }
   };
