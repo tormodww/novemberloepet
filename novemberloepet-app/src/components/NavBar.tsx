@@ -36,8 +36,8 @@ const NavBar: React.FC = () => {
     { key: 'etapper', label: 'Etapper', icon: <ListAltIcon />, path: '/etapper' },
     { key: 'registration', label: 'Registrering', icon: <CheckCircleIcon />, path: '/registration' },
     { key: 'startliste', label: 'Startliste', icon: <FormatListNumberedIcon />, path: '/startliste' },
-    { key: 'starttime', label: 'Registrer starttid', icon: <PlayArrowIcon />, path: '/starttid' },
-    { key: 'finishtime', label: 'Registrer slutttid', icon: <FlagIcon />, path: '/sluttid' },
+    { key: 'starttime', label: 'Starttid', icon: <PlayArrowIcon />, path: '/starttid' },
+    { key: 'finishtime', label: 'Slutttid', icon: <FlagIcon />, path: '/sluttid' },
     { key: 'results', label: 'Resultater', icon: <AssessmentIcon />, path: '/results' },
     { key: 'confirmation', label: 'Startbekreftelse', icon: <CheckCircleIcon />, path: '/confirmation' }
   ];

@@ -14,7 +14,7 @@ const Home: React.FC = () => {
           sx={{ py: 3, fontSize: 22 }}
           onClick={() => navigate('/starttid')}
         >
-          Registrer starttid
+          Starttid
         </Button>
         <Button
           variant="contained"
@@ -23,7 +23,7 @@ const Home: React.FC = () => {
           sx={{ py: 3, fontSize: 22 }}
           onClick={() => navigate('/sluttid')}
         >
-          Registrer sluttid
+          Sluttid
         </Button>
       </Stack>
     </Box>

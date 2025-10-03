@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode,useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode,useContext, useEffect, useState, useCallback } from 'react';
 
 import type { Deltager, DeltagerStatus, EtappeResultat, PendingOp } from '../api/types';
 export type { Deltager, DeltagerStatus, EtappeResultat } from '../api/types';
@@ -137,7 +137,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
   };
 
   // Attempt to process the queue (best-effort). Runs sequentially.
-  const processQueue = async () => {
+  const processQueue = useCallback(async () => {
     if (pendingOps.length === 0) return;
     // iterate over a snapshot
     const ops = [...pendingOps];
@@ -211,7 +211,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
         });
       }
     }
-  };
+  }, [pendingOps, deltagere, removeOp]);
 
   useEffect(() => {
     // try processing every 10s while there are ops (best-effort)
@@ -222,15 +222,13 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     // also try immediately
     processQueue();
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingOps.length]);
+  }, [pendingOps.length, processQueue]);
 
   useEffect(() => {
     const onOnline = () => { processQueue(); };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [processQueue]);
 
   const addDeltager = (d: Deltager) => setDeltagere((prev) => [...prev, d]);
   const updateResultater = (navn: string, resultater: EtappeResultat[]) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, resultater } : d));

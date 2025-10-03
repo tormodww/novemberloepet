@@ -47,18 +47,21 @@ const FinishTimeRegister: React.FC = () => {
 
   // Hydrer valgt deltager fra persistent startnummer
   useEffect(() => {
-    if (!valgtDeltagerStartnummer) { setValgtDeltager(null); return; }
+    if (!valgtDeltagerStartnummer) { 
+      setValgtDeltager(null); 
+      return; 
+    }
     const found = deltagere.find(d => d.startnummer === valgtDeltagerStartnummer) || null;
     setValgtDeltager(found);
   }, [deltagere, valgtDeltagerStartnummer]);
 
-  // Oppdater persistent startnummer ved deltager-endring
+  // Oppdater persistent startnummer ved deltager-endring (men unngå loops)
   useEffect(() => {
     const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
     if (valgtDeltagerStartnummer !== newStartnummer) {
       setValgtDeltagerStartnummer(newStartnummer);
     }
-  }, [valgtDeltager, valgtDeltagerStartnummer, setValgtDeltagerStartnummer]);
+  }, [valgtDeltager]); // Fjernet valgtDeltagerStartnummer og setValgtDeltagerStartnummer fra dependencies
 
   const handleRegisterNow = () => {
     if (!valgtDeltager || etappe == null) return;

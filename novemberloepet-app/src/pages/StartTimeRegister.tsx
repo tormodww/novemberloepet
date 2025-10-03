@@ -44,13 +44,13 @@ const StartTimeRegister: React.FC = () => {
     setValgtDeltager(found);
   }, [deltagere, valgtDeltagerStartnummer]);
 
-  // Oppdater persistent startnummer når valgtDeltager endres
+  // Oppdater persistent startnummer når valgtDeltager endres (men unngå loops)
   useEffect(() => {
     const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
     if (valgtDeltagerStartnummer !== newStartnummer) {
       setValgtDeltagerStartnummer(newStartnummer);
     }
-  }, [valgtDeltager, valgtDeltagerStartnummer, setValgtDeltagerStartnummer]);
+  }, [valgtDeltager]); // Fjernet valgtDeltagerStartnummer og setValgtDeltagerStartnummer fra dependencies
 
   const storeStartTime = useCallback((d: Deltager, time: string) => {
     // Bruk context sin synk-funksjon (optimistisk + backend)
