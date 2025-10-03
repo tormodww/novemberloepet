@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef,useState } from 'react';
 
 import { Deltager, EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
@@ -128,22 +128,6 @@ const FinishTimeRegister: React.FC = () => {
     const hasFinish = !!r?.maltid;
     const status = r?.status;
     return !hasFinish && status !== 'DNS' && status !== 'DNF';
-  };
-
-  const selectNextUnprocessed = (current?: Deltager | null) => {
-    if (etappe == null) return;
-    const sorted = [...deltagere].sort((a, b) => Number(a.startnummer) - Number(b.startnummer));
-    const candidates = sorted.filter(unprocessedPredicate);
-    if (candidates.length === 0) return;
-    if (!current) { setValgtDeltager(candidates[0]); return; }
-    const idx = candidates.findIndex(c => c.startnummer === current.startnummer);
-    const next = idx >= 0 && idx < candidates.length - 1 ? candidates[idx + 1] : candidates[0];
-    setValgtDeltager(next);
-  };
-
-  const filteredOptions = () => {
-    let list = deltagere.filter(d => !!d.startnummer);
-    return list;
   };
 
   // Steg 1: Etappevalg
