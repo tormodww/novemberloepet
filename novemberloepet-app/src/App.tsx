@@ -1,20 +1,22 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import './App.css';
+
 import CssBaseline from '@mui/material/CssBaseline';
+import { createTheme,ThemeProvider } from '@mui/material/styles';
+import React from 'react';
+import { BrowserRouter as Router, Route,Routes } from 'react-router-dom';
+
+import NavBar from './components/NavBar';
 import { DeltagerProvider } from './context/DeltagerContext';
 import { EtappeProvider } from './context/EtappeContext';
-import NavBar from './components/NavBar';
-import Home from './pages/Home';
+import AlleDeltagere from './pages/AlleDeltagere';
+import Confirmation from './pages/Confirmation';
 import Etapper from './pages/Etapper';
+import FinishTimeRegister from './pages/FinishTimeRegister';
+import Home from './pages/Home';
 import Registration from './pages/Registration';
+import Results from './pages/Results';
 import Startliste from './pages/Startliste';
 import StartTimeRegister from './pages/StartTimeRegister';
-import FinishTimeRegister from './pages/FinishTimeRegister';
-import Results from './pages/Results';
-import Confirmation from './pages/Confirmation';
-import AlleDeltagere from './pages/AlleDeltagere';
-import './App.css';
 
 const theme = createTheme({
   palette: {

@@ -1,12 +1,12 @@
 import EditIcon from '@mui/icons-material/Edit';
-import { Box, Button,Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputLabel,MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import React, { useState } from 'react';
 
-import { Deltager, EtappeResultat,useDeltagerContext } from '../context/DeltagerContext';
+import { Deltager, DeltagerStatus,EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 
 const Results: React.FC = () => {
-  const { deltagere, updateResultater: _updateResultater, addDeltager: _addDeltager, editDeltager } = useDeltagerContext();
+  const { deltagere, editDeltager } = useDeltagerContext();
   const { etapper } = useEtappeContext();
   const numEtapper = etapper.length;
 
@@ -22,10 +22,9 @@ const Results: React.FC = () => {
     grupper[d.klasse].push(d);
   });
 
-  // Dialog state (prefixet med underscore for å unngå unused warnings dersom funksjonaliteten er midlertidig deaktivert)
-  const [_open, setOpen] = useState(false);
+  // Dialog state
+  const [open, setOpen] = useState(false);
   const [editNavn, setEditNavn] = useState<string | null>(null);
-  const [_resultater, setResultater] = useState<EtappeResultat[]>([]);
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editInfo, setEditInfo] = useState<Partial<Deltager>>({});
   const [editResultater, setEditResultater] = useState<EtappeResultat[]>([]);
@@ -36,7 +35,7 @@ const Results: React.FC = () => {
     setEditNavn(d.navn);
     setEditResultater(
       Array.from({ length: numEtapper }, (_, i) =>
-        d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' }
+        d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus }
       )
     );
     setOpen(true);
@@ -54,7 +53,7 @@ const Results: React.FC = () => {
   };
 
   const handleResultatStatusChange = (etappeIdx: number, status: string) => {
-    setEditResultater(prev => prev.map((r, i) => i === etappeIdx ? { ...r, status } : r));
+    setEditResultater(prev => prev.map((r, i) => i === etappeIdx ? { ...r, status: status as DeltagerStatus } : r));
   };
 
   const handleEditInfoSave = () => {
@@ -69,7 +68,7 @@ const Results: React.FC = () => {
 
   return (
     <Box maxWidth={1100} mx="auto">
-      <Typography variant="h5" gutterBottom>Resultatliste (demo)</Typography>
+      <Typography variant="h5" gutterBottom>Resultatliste</Typography>
       {Object.keys(grupper).length === 0 && <Typography>Ingen deltagere registrert.</Typography>}
       {Object.entries(grupper).map(([klasse, list]) => (
         <Box key={klasse} mt={4}>
@@ -93,7 +92,7 @@ const Results: React.FC = () => {
                   // Normalize resultater array to always have numEtapper entries
                   const normalizedResultater = Array.from({ length: numEtapper }, (_, i) => {
                     const found = d.resultater?.find(r => r.etappe === i + 1);
-                    return found || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' };
+                    return found || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' as DeltagerStatus };
                   });
                   return (
                     <TableRow key={idx}>
@@ -143,7 +142,7 @@ const Results: React.FC = () => {
         </DialogActions>
       </Dialog>
       {/* Rediger resultater dialog */}
-      <Dialog open={_open} onClose={() => setOpen(false)}>
+      <Dialog open={open} onClose={() => setOpen(false)}>
         <DialogTitle>Rediger etapperesultater</DialogTitle>
         <DialogContent>
           {editResultater.map((r, i) => (

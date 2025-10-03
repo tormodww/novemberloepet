@@ -1,6 +1,7 @@
+import { act,render } from '@testing-library/react';
 import React from 'react';
-import { render, act } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { DeltagerProvider, useDeltagerContext } from '../DeltagerContext';
 
 // Mock localStorage

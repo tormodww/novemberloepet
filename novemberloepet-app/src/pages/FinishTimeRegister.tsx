@@ -20,7 +20,7 @@ function formatManualFinish(raw: string): string | null {
 }
 
 const FinishTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager, setEtappeStatus, updateFinishTime } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateFinishTime, deleteFinishTime } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   const [step, setStep] = usePersistentState<number>('finishtime.step', 1);
@@ -33,7 +33,7 @@ const FinishTimeRegister: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
   const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('finishtime.selectedStartnummer', null);
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
-  const [forceRefresh, setForceRefresh] = useState(0);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
   const isUpdatingRef = useRef(false);
@@ -70,7 +70,7 @@ const FinishTimeRegister: React.FC = () => {
     setTimeout(() => {
       isUpdatingRef.current = false;
     }, 0);
-  }, [valgtDeltager]);
+  }, [valgtDeltager, setValgtDeltagerStartnummer, valgtDeltagerStartnummer]);
 
   const handleRegisterNow = () => {
     if (!valgtDeltager || etappe == null) return;
@@ -146,14 +146,6 @@ const FinishTimeRegister: React.FC = () => {
       setTimeout(() => manualInputRef.current?.focus(), 0);
     }
   }, [showManual]);
-
-  const unprocessedPredicate = (d: Deltager) => {
-    if (!d.startnummer) return false;
-    const resultat = d.resultater?.[etappe! - 1];
-    if (!resultat) return false;
-    const { status } = resultat;
-    return status === 'NONE' || status === 'DNF';
-  };
 
   // Steg 1: Etappevalg
   if (step === 1) {
@@ -324,14 +316,22 @@ const FinishTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
+            {/* Slett sluttid knapp - kun vis hvis det finnes en sluttid */}
+            {existingEtappeFinish && (
+              <Button
+                variant="outlined"
+                color="error"
+                size="large"
+                sx={{ py: 1.5, fontSize: 18 }}
+                onClick={() => {
+                  if (!valgtDeltager || etappe == null) return;
+                  setConfirmDeleteOpen(true);
+                }}
+              >
+                🗑️ Slett sluttid
+              </Button>
+            )}
             {message && <Typography color="success.main">{message}</Typography>}
-            <Button
-              variant="text"
-              onClick={() => { setValgtDeltager(null); clear(); resetManual(); }}
-              sx={{ mt: 1 }}
-            >
-              Registrer en annen deltager
-            </Button>
           </Stack>
         )}
         <Dialog open={confirmOverrideOpen} onClose={cancelOverride}>
@@ -358,6 +358,25 @@ const FinishTimeRegister: React.FC = () => {
               resetManual();
               setConfirmEtappeChangeOpen(false);
             }}>Bekreft</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+          <DialogTitle>Bekreft sletting av sluttid</DialogTitle>
+          <DialogContent>
+            <Typography>Er du sikker på at du vil slette sluttiden for denne etappen?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteOpen(false)}>Avbryt</Button>
+            <Button variant="contained" color="error" onClick={() => {
+              if (valgtDeltager && etappe !== null) {
+                deleteFinishTime(valgtDeltager.startnummer, etappe);
+                showMessage(`Sluttid slettet for #${valgtDeltager.startnummer}`);
+                resetManual();
+              }
+              setConfirmDeleteOpen(false);
+            }}>
+              Bekreft sletting
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

@@ -2,8 +2,8 @@
  * @vitest-environment happy-dom
  */
 import { render, screen } from '@testing-library/react';
-import { test, expect } from 'vitest';
 import React from 'react';
+import { expect,test } from 'vitest';
 
 import App from './App';
 

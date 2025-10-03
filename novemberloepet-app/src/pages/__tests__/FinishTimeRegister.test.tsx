@@ -1,9 +1,10 @@
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { render, fireEvent, act, screen } from '@testing-library/react';
-import { vi, describe, beforeEach, it, expect } from 'vitest';
-import FinishTimeRegister from '../FinishTimeRegister';
+import { beforeEach, describe, expect,it, vi } from 'vitest';
+
 import { DeltagerProvider } from '../../context/DeltagerContext';
 import { EtappeProvider } from '../../context/EtappeContext';
+import FinishTimeRegister from '../FinishTimeRegister';
 
 // Mock backend API used by the app (best-effort)
 vi.mock('../../api/deltagere', () => ({

@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
@@ -8,7 +8,7 @@ import { usePersistentState } from '../hooks/usePersistentState';
 import { formatManualStart } from '../lib/timeFormat';
 
 const StartTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager, setEtappeStatus, updateStartTime } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateStartTime, deleteStartTime } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   // Veiviser steg og valgt etappe/deltager
@@ -22,6 +22,7 @@ const StartTimeRegister: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
   const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('starttime.selectedStartnummer', null);
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
   const isUpdatingRef = useRef(false);
@@ -58,15 +59,15 @@ const StartTimeRegister: React.FC = () => {
     setTimeout(() => {
       isUpdatingRef.current = false;
     }, 0);
-  }, [valgtDeltager]);
+  }, [valgtDeltager, setValgtDeltagerStartnummer, valgtDeltagerStartnummer]);
 
-  const storeStartTime = (d: Deltager, time: string) => {
+  const storeStartTime = useCallback((d: Deltager, time: string) => {
     // Bruk context sin synk-funksjon (optimistisk + backend)
     if (valgtEtappe == null) return;
     updateStartTime(d.startnummer, valgtEtappe, time);
-  };
+  }, [valgtEtappe, updateStartTime]);
 
-  const registerNow = () => {
+  const registerNow = useCallback(() => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -81,9 +82,9 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, tid);
     showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
     setShowManual(false); setManualInput('');
-  };
+  }, [valgtDeltager, valgtEtappe, existingEtappeStart, storeStartTime, showMessage]);
 
-  const saveManual = () => {
+  const saveManual = useCallback(() => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const formatted = formatManualStart(manualInput);
     if (!formatted) return;
@@ -95,7 +96,7 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, formatted);
     showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     setManualInput(''); setShowManual(false);
-  };
+  }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage]);
 
   const confirmOverride = () => {
     if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setConfirmOverrideOpen(false); return; }
@@ -154,7 +155,7 @@ const StartTimeRegister: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe, setEtappeStatus, editDeltager, showMessage]);
+  }, [step, valgtDeltager, showManual, confirmOverrideOpen, valgtEtappe, setEtappeStatus, editDeltager, showMessage, registerNow, saveManual]);
 
   // Self-heal persisted invalid state: if step=2 but no valgtEtappe, or step is outside expected range
   useEffect(() => {
@@ -209,18 +210,22 @@ const StartTimeRegister: React.FC = () => {
           onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); }}
           renderOption={(props, option) => {
             const status = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.status : undefined;
-            const etappeStart = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.starttid : '';
+            const faktiskStarttid = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.starttid : '';
+            
             let statusChip: React.ReactNode = null;
             if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
             else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
-            const timeChip = etappeStart && status !== 'DNS' && status !== 'DNF'
-              ? <Chip label={etappeStart} color="success" size="small" sx={{ ml: 1 }} />
+            
+            // Vis kun faktisk starttid (fra etappe-resultater), ikke planlagt starttid
+            const timeChip = faktiskStarttid && status !== 'DNS' && status !== 'DNF'
+              ? <Chip label={faktiskStarttid} color="success" size="small" sx={{ ml: 1 }} />
               : null;
+            
             return (
               <li
                 {...props}
                 key={option.startnummer}
-                style={{ display: 'flex', alignItems: 'center', ...(etappeStart ? { fontWeight: 600 } : {}) }}
+                style={{ display: 'flex', alignItems: 'center', ...(faktiskStarttid ? { fontWeight: 600 } : {}) }}
               >
                 <span>#{option.startnummer} {option.navn}</span>
                 {timeChip}
@@ -335,14 +340,22 @@ const StartTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
+            {/* Slett starttid knapp - kun vis hvis det finnes en starttid */}
+            {existingEtappeStart && (
+              <Button
+                variant="outlined"
+                color="error"
+                size="large"
+                sx={{ py: 1.5, fontSize: 18 }}
+                onClick={() => {
+                  if (!valgtDeltager || valgtEtappe == null) return;
+                  setConfirmDeleteOpen(true);
+                }}
+              >
+                🗑️ Slett starttid
+              </Button>
+            )}
             {message && <Typography color="success.main">{message}</Typography>}
-            <Button
-              variant="text"
-              onClick={() => { setValgtDeltager(null); clear(); setShowManual(false); setManualInput(''); }}
-              sx={{ mt: 1 }}
-            >
-              Registrer en annen deltager
-            </Button>
           </Stack>
         )}
         <Dialog open={confirmOverrideOpen} onClose={cancelOverride}>
@@ -370,6 +383,23 @@ const StartTimeRegister: React.FC = () => {
               setManualInput('');
               setConfirmEtappeChangeOpen(false);
             }}>Bekreft</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+          <DialogTitle>Bekreft sletting av starttid</DialogTitle>
+          <DialogContent>
+            <Typography>Er du sikker på at du vil slette starttiden for denne etappen?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteOpen(false)}>Avbryt</Button>
+            <Button variant="contained" onClick={() => {
+              if (!valgtDeltager || valgtEtappe == null) return;
+              deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
+              showMessage(`Starttid slettet for #${valgtDeltager.startnummer}`);
+              setShowManual(false);
+              setManualInput('');
+              setConfirmDeleteOpen(false);
+            }}>Bekreft sletting</Button>
           </DialogActions>
         </Dialog>
       </Box>

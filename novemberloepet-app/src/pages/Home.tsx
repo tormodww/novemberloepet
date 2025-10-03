@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { Box, Button, Container, Grid, Paper, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Alert, CircularProgress } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import FlagIcon from '@mui/icons-material/Flag';
-import ListAltIcon from '@mui/icons-material/ListAlt';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import { useDeltagerContext } from '../context/DeltagerContext';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FlagIcon from '@mui/icons-material/Flag';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { Alert, Box, Button, CircularProgress,Container, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Paper, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 import { useEtappeContext } from '../context/EtappeContext';
 
 const Home: React.FC = () => {

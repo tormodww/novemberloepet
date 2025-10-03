@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode,useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, ReactNode,useCallback,useContext, useEffect, useState } from 'react';
 
 import type { Deltager, DeltagerStatus, EtappeResultat, PendingOp } from '../api/types';
 export type { Deltager, DeltagerStatus, EtappeResultat } from '../api/types';
@@ -17,6 +17,8 @@ type DeltagerContextType = {
   updateDeltager: (startnummer: string, data: Partial<Deltager>) => Promise<boolean>;
   updateStartTime: (startnummer: string, etappe: number, starttid: string) => Promise<boolean>;
   updateFinishTime: (startnummer: string, etappe: number, maltid: string) => Promise<boolean>;
+  deleteStartTime: (startnummer: string, etappe: number) => Promise<boolean>;
+  deleteFinishTime: (startnummer: string, etappe: number) => Promise<boolean>;
   pendingOps: PendingOp[];
   retryOp: (id: string) => void;
   clearOp: (id: string) => void;
@@ -128,13 +130,13 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     });
   }
 
-  const removeOp = (id: string) => {
+  const removeOp = useCallback((id: string) => {
     setPendingOps(prev => {
       const next = prev.filter(p => p.id !== id);
       persistOps(next);
       return next;
     });
-  };
+  }, []);
 
   // Attempt to process the queue (best-effort). Runs sequentially.
   const processQueue = useCallback(async () => {
@@ -393,34 +395,64 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
   };
 
   const updateStartTime = async (startnummer: string, etappe: number, starttid: string): Promise<boolean> => {
-    let target: Deltager | undefined;
+    let updatedResults: EtappeResultat[] | undefined;
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
-      target = d;
       const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
       const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
       const idx = etappe - 1;
       results[idx] = { ...results[idx], starttid };
-      return { ...d, starttid, resultater: results };
+      updatedResults = results;
+      // Kun oppdater resultater, ikke planlagt starttid (d.starttid)
+      return { ...d, resultater: results };
     }));
-    const snapshot = target;
-    const payload: Partial<Deltager> = snapshot ? { starttid, resultater: snapshot.resultater?.map(r => r.etappe === etappe ? { ...r, starttid } : r) } : { starttid };
+    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
     return updateDeltager(startnummer, payload);
   };
 
   const updateFinishTime = async (startnummer: string, etappe: number, maltid: string): Promise<boolean> => {
-    let target: Deltager | undefined;
+    let updatedResults: EtappeResultat[] | undefined;
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
-      target = d;
       const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
       const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
       const idx = etappe - 1;
       results[idx] = { ...results[idx], maltid };
+      updatedResults = results;
       return { ...d, resultater: results };
     }));
-    const snapshot = target;
-    const payload: Partial<Deltager> = snapshot ? { resultater: snapshot.resultater?.map(r => r.etappe === etappe ? { ...r, maltid } : r) } : {};
+    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+    return updateDeltager(startnummer, payload);
+  };
+
+  const deleteStartTime = async (startnummer: string, etappe: number): Promise<boolean> => {
+    let updatedResults: EtappeResultat[] | undefined;
+    setDeltagere(prev => prev.map(d => {
+      if (d.startnummer !== startnummer) return d;
+      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
+      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const idx = etappe - 1;
+      results[idx] = { ...results[idx], starttid: '' };
+      updatedResults = results;
+      // Kun oppdater resultater, ikke planlagt starttid (d.starttid)
+      return { ...d, resultater: results };
+    }));
+    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+    return updateDeltager(startnummer, payload);
+  };
+
+  const deleteFinishTime = async (startnummer: string, etappe: number): Promise<boolean> => {
+    let updatedResults: EtappeResultat[] | undefined;
+    setDeltagere(prev => prev.map(d => {
+      if (d.startnummer !== startnummer) return d;
+      const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
+      const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
+      const idx = etappe - 1;
+      results[idx] = { ...results[idx], maltid: '' };
+      updatedResults = results;
+      return { ...d, resultater: results };
+    }));
+    const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
     return updateDeltager(startnummer, payload);
   };
 
@@ -449,6 +481,8 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       updateDeltager,
       updateStartTime,
       updateFinishTime,
+      deleteStartTime,
+      deleteFinishTime,
       // queue API
       pendingOps,
       retryOp: (id: string) => {
