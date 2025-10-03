@@ -54,8 +54,11 @@ const FinishTimeRegister: React.FC = () => {
 
   // Oppdater persistent startnummer ved deltager-endring
   useEffect(() => {
-    setValgtDeltagerStartnummer(valgtDeltager ? valgtDeltager.startnummer : null);
-  }, [valgtDeltager, setValgtDeltagerStartnummer]);
+    const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
+    if (valgtDeltagerStartnummer !== newStartnummer) {
+      setValgtDeltagerStartnummer(newStartnummer);
+    }
+  }, [valgtDeltager, valgtDeltagerStartnummer, setValgtDeltagerStartnummer]);
 
   const handleRegisterNow = () => {
     if (!valgtDeltager || etappe == null) return;

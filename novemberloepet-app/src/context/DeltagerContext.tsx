@@ -243,8 +243,35 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       results[idx] = { ...existing, status } as EtappeResultat;
       return { ...d, resultater: results };
     }));
+    // Persist to backend
+    (async () => {
+      try {
+        const local = deltagere.find(d => d.startnummer === startnummer);
+        const payload: Partial<Deltager> = local ? {
+          resultater: local.resultater?.map((r, i) => i === etappe - 1 ? { ...r, status } : r)
+        } : {};
+        await updateDeltager(startnummer, payload);
+      } catch (e) {
+        // If failed, will be queued by updateDeltager
+        console.warn('Failed to persist etappe status to backend', e);
+      }
+    })();
   };
-  const editDeltager = (navn: string, data: Partial<Deltager>) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, ...data } : d));
+  const editDeltager = (navn: string, data: Partial<Deltager>) => {
+    setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, ...data } : d));
+    // Persist to backend
+    (async () => {
+      try {
+        const local = deltagere.find(d => d.navn === navn);
+        if (local) {
+          await updateDeltager(local.startnummer, data);
+        }
+      } catch (e) {
+        // If failed, will be queued by updateDeltager
+        console.warn('Failed to persist deltager edit to backend', e);
+      }
+    })();
+  };
   const deleteDeltager = (startnummer: string) => setDeltagere((prev) => prev.filter(d => d.startnummer !== startnummer));
 
   const setDeltagerStatus = (startnummer: string, status: DeltagerStatus) => {

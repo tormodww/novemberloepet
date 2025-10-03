@@ -46,8 +46,11 @@ const StartTimeRegister: React.FC = () => {
 
   // Oppdater persistent startnummer når valgtDeltager endres
   useEffect(() => {
-    setValgtDeltagerStartnummer(valgtDeltager ? valgtDeltager.startnummer : null);
-  }, [valgtDeltager, setValgtDeltagerStartnummer]);
+    const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
+    if (valgtDeltagerStartnummer !== newStartnummer) {
+      setValgtDeltagerStartnummer(newStartnummer);
+    }
+  }, [valgtDeltager, valgtDeltagerStartnummer, setValgtDeltagerStartnummer]);
 
   const storeStartTime = useCallback((d: Deltager, time: string) => {
     // Bruk context sin synk-funksjon (optimistisk + backend)
