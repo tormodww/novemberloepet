@@ -1,14 +1,15 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import ReplaceConfirmDialog from '../components/common/ReplaceConfirmDialog';
 
+import ReplaceConfirmDialog from '../components/common/ReplaceConfirmDialog';
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { formatManualStart } from '../lib/timeFormat';
+import { formatManualFinish } from '../lib/timeFormat';
 
 const StartTimeRegister: React.FC = () => {
+  // This component now handles start-tid (start time) semantics
   const { deltagere, editDeltager, setEtappeStatus, updateStartTime, deleteStartTime } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
@@ -24,8 +25,7 @@ const StartTimeRegister: React.FC = () => {
   const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('starttime.selectedStartnummer', null);
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  // Unified replace confirmation: either replace existing starttid with a status (DNS/DNF)
-  // or replace existing status with a starttid. pendingReplace holds the intent.
+  // Unified replace confirmation for start-tid <-> DNS/DNF
   const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
   const [pendingReplace, setPendingReplace] = useState<
     | { kind: 'SET_STATUS'; status: 'DNS' | 'DNF' }
@@ -39,7 +39,7 @@ const StartTimeRegister: React.FC = () => {
   const existingEtappeStart = (() => {
     if (valgtEtappe == null || !valgtDeltager) return '';
     const res = valgtDeltager.resultater?.[valgtEtappe - 1];
-    return res?.starttid || '';
+    return (res as any)?.starttid || '';
   })();
 
   const existingEtappeStatus = (() => {
@@ -82,7 +82,7 @@ const StartTimeRegister: React.FC = () => {
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     const tid = `${hh}:${mm}`;
-    // If there's a DNS/DNF status, confirm before replacing it with an actual start time
+    // If participant currently has DNS/DNF for this etappe, confirm before replacing it with a start time
     if (existingEtappeStatus === 'DNS' || existingEtappeStatus === 'DNF') {
       setPendingReplace({ kind: 'SET_START', time: tid });
       setConfirmReplaceOpen(true);
@@ -93,7 +93,10 @@ const StartTimeRegister: React.FC = () => {
       setConfirmOverrideOpen(true);
       return;
     }
+    console.log('StartTimeRegister.registerNow -> storing start-time', { startnummer: valgtDeltager.startnummer, etappe: valgtEtappe, tid });
+    showMessage('Lagrer start-tid...');
     const ok = await storeStartTime(valgtDeltager, tid);
+    console.log('StartTimeRegister.registerNow -> result', { ok });
     if (ok) {
       showMessage(`Start-tid ${tid} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
@@ -105,9 +108,9 @@ const StartTimeRegister: React.FC = () => {
 
   const saveManual = useCallback(async () => {
     if (!valgtDeltager || valgtEtappe == null) return;
-    const formatted = formatManualStart(manualInput);
-    if (!formatted) return;
-    // If there's a DNS/DNF status, confirm before replacing it with an actual start time
+    const formatted = formatManualFinish(manualInput);
+    if (!formatted) { showMessage('Ugyldig manuell tid'); return; }
+    // If participant currently has DNS/DNF for this etappe, confirm before replacing it with a start time
     if (existingEtappeStatus === 'DNS' || existingEtappeStatus === 'DNF') {
       setPendingReplace({ kind: 'SET_START', time: formatted });
       setConfirmReplaceOpen(true);
@@ -118,8 +121,20 @@ const StartTimeRegister: React.FC = () => {
       setConfirmOverrideOpen(true);
       return;
     }
+    console.log('StartTimeRegister.saveManual -> storing manual start-time', { startnummer: valgtDeltager.startnummer, etappe: valgtEtappe, formatted });
+    showMessage('Lagrer manuell start-tid...');
     const ok = await storeStartTime(valgtDeltager, formatted);
+    console.log('StartTimeRegister.saveManual -> result', { ok });
     if (ok) {
+      // optimistic update so UI shows the saved start time immediately
+      setValgtDeltager(prev => {
+        if (!prev) return prev;
+        const results = Array.isArray(prev.resultater) ? [...prev.resultater] : [];
+        const idx = Math.max(0, valgtEtappe - 1);
+        const existing = results[idx] || { etappe: idx + 1, starttid: '', maltid: '', idealtid: '', diff: '' } as any;
+        results[idx] = { ...existing, starttid: formatted } as any;
+        return { ...prev, resultater: results } as Deltager;
+      });
       showMessage(`Start-tid ${formatted} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
@@ -136,13 +151,13 @@ const StartTimeRegister: React.FC = () => {
       return;
     }
     if (pendingReplace.kind === 'SET_START') {
-      // remove status and store the start time
+      // remove status and store start time
       setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'NONE');
       const ok = await storeStartTime(valgtDeltager, pendingReplace.time);
       if (ok) showMessage(`Start-tid ${pendingReplace.time} registrert for #${valgtDeltager.startnummer}`);
       else showMessage('Kunne ikke lagre start-tid til backend');
     } else if (pendingReplace.kind === 'SET_STATUS') {
-      // remove existing starttid and set status
+      // remove existing start-tid and set status
       await deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
       setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, pendingReplace.status);
       showMessage(`${pendingReplace.status} registrert for #${valgtDeltager.startnummer}`);
@@ -176,19 +191,14 @@ const StartTimeRegister: React.FC = () => {
         }
       } else if (e.key.toLowerCase() === 'm') {
         setShowManual(s => !s);
-      } else if (e.key.toLowerCase() === 'd') {
+      } else if (e.key.toLowerCase() === 'f') {
         if (valgtEtappe != null) {
-          // Mirror button behavior: if there's an existing start time, ask for confirmation
-          if (existingEtappeStart) {
-            setPendingReplace({ kind: 'SET_STATUS', status: 'DNS' });
-            setConfirmReplaceOpen(true);
-            return;
-          }
-          setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
+          // Mark as START (here we reuse FINISH semantics to set a status meaning 'FINISH' in original app, keep same status name)
+          setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'FINISH');
           deleteStartTime(valgtDeltager.startnummer, valgtEtappe).then(() => {
-            showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+            showMessage(`Start registrert for #${valgtDeltager.startnummer}`);
           }).catch(() => {
-            showMessage(`DNS registrert (lokalt) for #${valgtDeltager.startnummer}`);
+            showMessage(`Start registrert (lokalt) for #${valgtDeltager.startnummer}`);
           });
         }
       } else if (e.key === 'Escape') {
@@ -197,7 +207,7 @@ const StartTimeRegister: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, valgtDeltager, showManual, confirmOverrideOpen, valgtEtappe, setEtappeStatus, editDeltager, showMessage, registerNow, saveManual, deleteStartTime, existingEtappeStart]);
+  }, [step, valgtDeltager, showManual, confirmOverrideOpen, valgtEtappe, setEtappeStatus, editDeltager, showMessage, registerNow, saveManual, deleteStartTime]);
 
   // Self-heal persisted invalid state: if step=2 but no valgtEtappe, or step is outside expected range
   useEffect(() => {
@@ -235,7 +245,7 @@ const StartTimeRegister: React.FC = () => {
   if (step === 2 && valgtEtappe !== null) {
     const isDNS = existingEtappeStatus === 'DNS';
     const isDNF = existingEtappeStatus === 'DNF';
-    const valgtEtappeObj = Array.isArray(etapper) ? etapper.find(e => e.nummer === valgtEtappe) : undefined;
+    const valgtEtappeObj = etapper.find(e => e.nummer === valgtEtappe);
     return (
       <Box sx={{ p: 2, maxWidth: 420, mx: 'auto' }}>
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
@@ -251,23 +261,24 @@ const StartTimeRegister: React.FC = () => {
           value={valgtDeltager}
           onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); }}
           renderOption={(props, option) => {
-            const status = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.status : undefined;
-            const faktiskStarttid = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1]?.starttid : '';
-            
+            const res = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1] : undefined;
+            const status = res?.status;
+            const faktiskStartTid = res?.starttid;
+
             let statusChip: React.ReactNode = null;
             if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
             else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
-            
-            // Vis kun faktisk starttid (fra etappe-resultater), ikke planlagt starttid
-            const timeChip = faktiskStarttid && status !== 'DNS' && status !== 'DNF'
-              ? <Chip label={faktiskStarttid} color="success" size="small" sx={{ ml: 1 }} />
+
+            // Vis start-tid-chip bare hvis det finnes en start-tid og status ikke er DNS/DNF
+            const timeChip = faktiskStartTid && status !== 'DNS' && status !== 'DNF'
+              ? <Chip label={faktiskStartTid} color="success" size="small" sx={{ ml: 1 }} />
               : null;
-            
+
             return (
               <li
                 {...props}
                 key={option.startnummer}
-                style={{ display: 'flex', alignItems: 'center', ...(faktiskStarttid ? { fontWeight: 600 } : {}) }}
+                style={{ display: 'flex', alignItems: 'center', ...(faktiskStartTid ? { fontWeight: 600 } : {}) }}
               >
                 <span>#{option.startnummer} {option.navn}</span>
                 {timeChip}
@@ -318,14 +329,14 @@ const StartTimeRegister: React.FC = () => {
             >
               {existingEtappeStart ? 'Overskriv start-tid = nå' : 'Registrer start-tid = nå'}
             </Button>
-            {/* Flyttet manuell toggle rett under registrer-knappen */}
+            {/* Flyttet manuell toggle rett under registrer-knappen. Button opens manual input; cancel removed. */}
             <Button
               variant="outlined"
               size="large"
               sx={{ py: 1.5, fontSize: 18 }}
-              onClick={() => { setShowManual(s => !s); if (showManual) { setManualInput(''); } }}
+              onClick={() => { setShowManual(true); }}
             >
-              {showManual ? 'Avbryt manuell registrering' : 'Korriger / sett tid manuelt'}
+              Korriger / sett tid manuelt
             </Button>
             {showManual && (
               <Stack spacing={1}>
@@ -355,14 +366,14 @@ const StartTimeRegister: React.FC = () => {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'NONE');
                   showMessage(`DNS fjernet for #${valgtDeltager.startnummer}`);
                 } else {
-                  // If there is already a registered starttid for this etappe, confirm before replacing it with DNS
+                  // If there is already a registered start-tid for this etappe, confirm before replacing it with DNS
                   if (existingEtappeStart) {
                     setPendingReplace({ kind: 'SET_STATUS', status: 'DNS' });
                     setConfirmReplaceOpen(true);
                     return;
                   }
-                  // No existing starttid -> set DNS and ensure resultater cleared
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
+                  // Clear etappe start-tid via deleteStartTime so the resultater entry is updated and persisted.
                   deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
                   showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
                   setShowManual(false); setManualInput('');
@@ -396,24 +407,54 @@ const StartTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
-            {/* Slett starttid knapp - kun vis hvis det finnes en starttid */}
+            {/* Slett start-tid knapp - kun vis hvis det finnes en start-tid */}
             {existingEtappeStart && (
-              <Button
-                variant="outlined"
-                color="error"
-                size="large"
-                sx={{ py: 1.5, fontSize: 18 }}
-                onClick={() => {
-                  if (!valgtDeltager || valgtEtappe == null) return;
-                  setConfirmDeleteOpen(true);
-                }}
-              >
-                🗑️ Slett start-tid
-              </Button>
-            )}
-            {message && <Typography color="success.main">{message}</Typography>}
-          </Stack>
-        )}
+               <Button
+                 variant="outlined"
+                 color="error"
+                 size="large"
+                 sx={{ py: 1.5, fontSize: 18 }}
+                 onClick={() => {
+                   if (!valgtDeltager || valgtEtappe == null) return;
+                   setConfirmDeleteOpen(true);
+                 }}
+               >
+                 🗑️ Slett start-tid
+               </Button>
+             )}
+             {message && <Typography color="success.main">{message}</Typography>}
+           </Stack>
+         )}
+        <Dialog open={confirmOverrideOpen} onClose={() => { setPendingAction(null); setConfirmOverrideOpen(false); }}>
+          <DialogTitle>Overskriv eksisterende start-tid?</DialogTitle>
+          <DialogContent>
+            <Typography>Det finnes allerede en start-tid for denne etappen ({existingEtappeStart}). Vil du overskrive den?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setPendingAction(null); setConfirmOverrideOpen(false); }}>Avbryt</Button>
+            <Button variant="contained" onClick={async () => {
+              if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setPendingAction(null); setConfirmOverrideOpen(false); return; }
+              const now = new Date();
+              const hh = String(now.getHours()).padStart(2, '0');
+              const mm = String(now.getMinutes()).padStart(2, '0');
+              if (pendingAction === 'NOW') {
+                const tid = `${hh}:${mm}`;
+                const ok = await storeStartTime(valgtDeltager, tid);
+                if (ok) { showMessage(`Start-tid oppdatert til ${tid}`); localStorage.clear(); }
+                else { showMessage('Kunne ikke lagre start-tid til backend'); }
+              } else if (pendingAction === 'MANUAL') {
+                const formatted = formatManualFinish(manualInput);
+                if (formatted) {
+                  const ok = await storeStartTime(valgtDeltager, formatted);
+                  if (ok) { showMessage(`Start-tid oppdatert til ${formatted}`); setManualInput(''); setShowManual(false); localStorage.clear(); }
+                  else { showMessage('Kunne ikke lagre start-tid til backend'); }
+                }
+              }
+              setPendingAction(null);
+              setConfirmOverrideOpen(false);
+            }}>Overskriv</Button>
+          </DialogActions>
+        </Dialog>
         <ReplaceConfirmDialog
           open={confirmReplaceOpen}
           pendingReplace={pendingReplace as any}

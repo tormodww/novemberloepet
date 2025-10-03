@@ -201,24 +201,33 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
   const addDeltager = (d: Deltager) => setDeltagere((prev) => [...prev, d]);
   const updateResultater = (navn: string, resultater: EtappeResultat[]) => setDeltagere((prev) => prev.map(d => d.navn === navn ? { ...d, resultater } : d));
   const setEtappeStatus = (startnummer: string, etappe: number, status: DeltagerStatus) => {
+    // We'll compute the exact updated resultater during the state update so we can persist the same payload
+    let updatedResults: EtappeResultat[] | undefined;
     setDeltagere(prev => prev.map(d => {
       if (d.startnummer !== startnummer) return d;
       const results = Array.isArray(d.resultater) ? [...d.resultater] : [];
       const idx = Math.max(0, etappe - 1);
-      const existing = results[idx] || { etappe, starttid: '', maltid: '', idealtid: '', diff: '' };
-      results[idx] = { ...existing, status } as EtappeResultat;
+      const existing = results[idx] || { etappe, starttid: '', maltid: '', idealtid: '', diff: '', status: 'NONE' } as EtappeResultat;
+      // When setting DNS/DNF/NONE we want to ensure any per-etappe times are cleared so the UI/backend remain consistent
+      const shouldClearTimes = status === 'DNS' || status === 'DNF' || status === 'NONE';
+      const next = {
+        ...existing,
+        status,
+        starttid: shouldClearTimes ? '' : (existing.starttid || ''),
+        sluttTid: shouldClearTimes ? '' : ((existing as any).sluttTid || (existing.maltid || ''))
+      } as EtappeResultat;
+      results[idx] = next;
+      updatedResults = results;
       return { ...d, resultater: results };
     }));
-    // Persist to backend
+    // Persist to backend using the exact updated results (avoid reading stale `deltagere` state)
     (async () => {
       try {
-        const local = deltagere.find(d => d.startnummer === startnummer);
-        const payload: Partial<Deltager> = local ? {
-          resultater: local.resultater?.map((r, i) => i === etappe - 1 ? { ...r, status } : r)
-        } : {};
-        await updateDeltager(startnummer, payload);
+        const payload: Partial<Deltager> = updatedResults ? { resultater: updatedResults } : {};
+        if (Object.keys(payload).length > 0) {
+          await updateDeltager(startnummer, payload);
+        }
       } catch (e) {
-        // If failed, will be queued by updateDeltager
         console.warn('Failed to persist etappe status to backend', e);
       }
     })();

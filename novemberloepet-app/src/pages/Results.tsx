@@ -110,7 +110,8 @@ const Results: React.FC = () => {
                           ) : r.status === 'DNF' ? (
                             <span style={{ color: '#ed6c02', fontWeight: 600 }}>DNF</span>
                           ) : (
-                            r.maltid || ''
+                            // Prefer sluttTid (used by FinishTimeRegister) and fall back to legacy maltid
+                            ((r as any).sluttTid || r.maltid || '')
                           )}
                         </TableCell>
                       ))}
@@ -160,8 +161,10 @@ const Results: React.FC = () => {
               />
               <TextField
                 label="Slutt-tid"
-                value={r.maltid || ''}
-                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, maltid: e.target.value } : res))}
+                // Ensure both legacy `maltid` and the newer `sluttTid` are updated so other parts of the app (which
+                // read either field) will see the change immediately.
+                value={(r as any).sluttTid || r.maltid || ''}
+                onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, maltid: e.target.value, sluttTid: e.target.value } : res))}
                 fullWidth
                 margin="dense"
               />
