@@ -44,6 +44,53 @@ const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
 
 export default Button;
 
+# Refactoring & Code Structure Guidelines
+
+## Component Structure
+- Break down large components into **smaller, reusable components**.
+- Keep each component **focused on a single responsibility** (SRP).
+- Extract complex logic into **custom hooks** (`useSomething`) if reused across components.
+- Place shared UI elements in a `/components/common` or `/shared` folder.
+
+- Keep hooks in `hooks/`, utilities in `utils/`, and types in `types/`.
+
+## Refactoring Practices
+- Remove duplicated logic by extracting it into **helper functions** or **custom hooks**.
+- Use **interfaces/types** in a shared `types.ts` to avoid duplication of type definitions.
+- Refactor long functions into smaller, **pure functions** where each handles one thing.
+- Replace inline anonymous functions with named handlers when readability improves.
+
+## Code Quality
+- Strive for **self-explanatory names** (avoid abbreviations).
+- Keep functions short (ideally <30 lines).
+- Use descriptive commit messages when performing refactors (`refactor: extract useForm hook`).
+- Write tests for refactored logic to ensure nothing breaks.
+
+## Example Refactor Pattern
+
+### Before
+```tsx
+const Form = () => {
+const [value, setValue] = useState("");
+const [error, setError] = useState("");
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!value) {
+    setError("Field required");
+    return;
+  }
+  const res = await fetch("/api/submit", { method: "POST", body: value });
+  if (!res.ok) setError("Error submitting");
+};
+
+return (
+  <form onSubmit={handleSubmit}>
+    <input value={value} onChange={e => setValue(e.target.value)} />
+    {error && <span>{error}</span>}
+  </form>
+);
+};
 
 # Sjekk alltid readme filen for bugs eller TODOs og spør meg om du skal gjøre noe med dem.
 ## Husk å skrive gode commit meldinger som beskriver hva du har gjort og hvorfor.
