@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useEffect, useRef,useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { Deltager, EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
@@ -33,8 +33,10 @@ const FinishTimeRegister: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<'NOW' | 'MANUAL' | null>(null);
   const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('finishtime.selectedStartnummer', null);
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(0);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
+  const isUpdatingRef = useRef(false);
 
   const existingEtappeFinish = (() => {
     if (!valgtDeltager || etappe == null) return '';
@@ -47,6 +49,7 @@ const FinishTimeRegister: React.FC = () => {
 
   // Hydrer valgt deltager fra persistent startnummer
   useEffect(() => {
+    if (isUpdatingRef.current) return;
     if (!valgtDeltagerStartnummer) { 
       setValgtDeltager(null); 
       return; 
@@ -55,13 +58,19 @@ const FinishTimeRegister: React.FC = () => {
     setValgtDeltager(found);
   }, [deltagere, valgtDeltagerStartnummer]);
 
-  // Oppdater persistent startnummer ved deltager-endring (men unngå loops)
+  // Oppdater persistent startnummer når valgtDeltager endres (men unngå loops)
   useEffect(() => {
+    if (isUpdatingRef.current) return;
+    isUpdatingRef.current = true;
     const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
     if (valgtDeltagerStartnummer !== newStartnummer) {
       setValgtDeltagerStartnummer(newStartnummer);
     }
-  }, [valgtDeltager]); // Fjernet valgtDeltagerStartnummer og setValgtDeltagerStartnummer fra dependencies
+    // Reset flag after a brief delay to allow state update to complete
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 0);
+  }, [valgtDeltager]);
 
   const handleRegisterNow = () => {
     if (!valgtDeltager || etappe == null) return;
@@ -70,14 +79,15 @@ const FinishTimeRegister: React.FC = () => {
     const mm = String(now.getMinutes()).padStart(2, '0');
     const ss = String(now.getSeconds()).padStart(2, '0');
     const tid = `${hh}:${mm}:${ss}`;
-    if (existingEtappeFinish) { // krever bekreftelse
+    if (existingEtappeFinish) {
       setPendingAction('NOW');
       setConfirmOverrideOpen(true);
       return;
     }
     updateFinishTime(valgtDeltager.startnummer, etappe, tid);
     showMessage(`Sluttid ${tid} registrert for #${valgtDeltager.startnummer}`);
-    resetManual();
+    setShowManual(false);
+    setManualInput('');
   };
 
   const handleManualSave = () => {
@@ -92,13 +102,20 @@ const FinishTimeRegister: React.FC = () => {
     }
     updateFinishTime(valgtDeltager.startnummer, etappe, finalTime);
     showMessage(`Sluttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
-    resetManual();
+    setShowManual(false);
+    setManualInput('');
   };
 
-  const resetManual = () => { setShowManual(false); setManualInput(''); };
+  const resetManual = () => { 
+    setShowManual(false); 
+    setManualInput(''); 
+  };
 
   const confirmOverride = () => {
-    if (!valgtDeltager || !pendingAction || etappe == null) { setConfirmOverrideOpen(false); return; }
+    if (!valgtDeltager || !pendingAction || etappe == null) { 
+      setConfirmOverrideOpen(false); 
+      return; 
+    }
     if (pendingAction === 'NOW') {
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, '0');
@@ -113,12 +130,14 @@ const FinishTimeRegister: React.FC = () => {
         const finalTime = formatted.length === 5 ? `00:${formatted}` : formatted;
         updateFinishTime(valgtDeltager.startnummer, etappe, finalTime);
         showMessage(`Sluttid oppdatert til ${formatted}`);
-        resetManual();
+        setShowManual(false);
+        setManualInput('');
       }
     }
     setPendingAction(null);
     setConfirmOverrideOpen(false);
   };
+
   const cancelOverride = () => { setPendingAction(null); setConfirmOverrideOpen(false); };
 
   // Autofokus på manuell sluttid når vist
@@ -129,11 +148,11 @@ const FinishTimeRegister: React.FC = () => {
   }, [showManual]);
 
   const unprocessedPredicate = (d: Deltager) => {
-    if (etappe == null) return true;
-    const r = d.resultater?.[etappe - 1];
-    const hasFinish = !!r?.maltid;
-    const status = r?.status;
-    return !hasFinish && status !== 'DNS' && status !== 'DNF';
+    if (!d.startnummer) return false;
+    const resultat = d.resultater?.[etappe! - 1];
+    if (!resultat) return false;
+    const { status } = resultat;
+    return status === 'NONE' || status === 'DNF';
   };
 
   // Steg 1: Etappevalg
@@ -197,7 +216,24 @@ const FinishTimeRegister: React.FC = () => {
             );
           }}
           renderInput={params => (
-            <TextField {...params} label="Startnummer eller navn" variant="outlined" fullWidth inputRef={autoInputRef} />
+            <TextField 
+              {...params} 
+              label="Startnummer eller navn" 
+              variant="outlined" 
+              fullWidth 
+              inputRef={autoInputRef}
+              InputProps={{
+                ...params.InputProps,
+                readOnly: true,
+                sx: {
+                  cursor: 'pointer',
+                  '& input': {
+                    cursor: 'pointer !important',
+                    caretColor: 'transparent'
+                  }
+                }
+              }}
+            />
           )}
           sx={{ mb: 3 }}
           isOptionEqualToValue={(opt, val) => opt.startnummer === val?.startnummer}

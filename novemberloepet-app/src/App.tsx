@@ -1,44 +1,55 @@
-import './App.css';
-
 import React from 'react';
-import { BrowserRouter, Route,Routes } from 'react-router-dom';
-
-import NavBar from './components/NavBar';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import { DeltagerProvider } from './context/DeltagerContext';
 import { EtappeProvider } from './context/EtappeContext';
-import Confirmation from './pages/Confirmation';
-import Etapper from './pages/Etapper';
-import FinishTimeRegister from './pages/FinishTimeRegister';
+import NavBar from './components/NavBar';
 import Home from './pages/Home';
+import Etapper from './pages/Etapper';
 import Registration from './pages/Registration';
-import Results from './pages/Results';
 import Startliste from './pages/Startliste';
 import StartTimeRegister from './pages/StartTimeRegister';
+import FinishTimeRegister from './pages/FinishTimeRegister';
+import Results from './pages/Results';
+import Confirmation from './pages/Confirmation';
+import AlleDeltagere from './pages/AlleDeltagere';
+import './App.css';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
 
 function App() {
   return (
-    <EtappeProvider>
-      <DeltagerProvider>
-        <BrowserRouter>
-          <div className="App">
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <EtappeProvider>
+        <DeltagerProvider>
+          <Router>
             <NavBar />
-            <div style={{ padding: 24 }}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/starttid" element={<StartTimeRegister />} />
-                <Route path="/sluttid" element={<FinishTimeRegister />} />
-                {/* Optional: keep other routes for admin use */}
-                <Route path="/registration" element={<Registration />} />
-                <Route path="/confirmation" element={<Confirmation />} />
-                <Route path="/results" element={<Results />} />
-                <Route path="/etapper" element={<Etapper />} />
-                <Route path="/startliste" element={<Startliste />} />
-              </Routes>
-            </div>
-          </div>
-        </BrowserRouter>
-      </DeltagerProvider>
-    </EtappeProvider>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/etapper" element={<Etapper />} />
+              <Route path="/registration" element={<Registration />} />
+              <Route path="/startliste" element={<Startliste />} />
+              <Route path="/starttid" element={<StartTimeRegister />} />
+              <Route path="/sluttid" element={<FinishTimeRegister />} />
+              <Route path="/results" element={<Results />} />
+              <Route path="/confirmation" element={<Confirmation />} />
+              <Route path="/alle-deltagere" element={<AlleDeltagere />} />
+            </Routes>
+          </Router>
+        </DeltagerProvider>
+      </EtappeProvider>
+    </ThemeProvider>
   );
 }
 

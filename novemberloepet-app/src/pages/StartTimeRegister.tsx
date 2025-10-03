@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useCallback, useEffect, useRef,useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
@@ -24,6 +24,7 @@ const StartTimeRegister: React.FC = () => {
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
+  const isUpdatingRef = useRef(false);
 
   const existingEtappeStart = (() => {
     if (valgtEtappe == null || !valgtDeltager) return '';
@@ -39,6 +40,7 @@ const StartTimeRegister: React.FC = () => {
 
   // Rehydrate valgt deltager når liste eller lagret startnummer endres
   useEffect(() => {
+    if (isUpdatingRef.current) return;
     if (!valgtDeltagerStartnummer) { setValgtDeltager(null); return; }
     const found = deltagere.find(d => d.startnummer === valgtDeltagerStartnummer) || null;
     setValgtDeltager(found);
@@ -46,19 +48,25 @@ const StartTimeRegister: React.FC = () => {
 
   // Oppdater persistent startnummer når valgtDeltager endres (men unngå loops)
   useEffect(() => {
+    if (isUpdatingRef.current) return;
+    isUpdatingRef.current = true;
     const newStartnummer = valgtDeltager ? valgtDeltager.startnummer : null;
     if (valgtDeltagerStartnummer !== newStartnummer) {
       setValgtDeltagerStartnummer(newStartnummer);
     }
-  }, [valgtDeltager]); // Fjernet valgtDeltagerStartnummer og setValgtDeltagerStartnummer fra dependencies
+    // Reset flag after a brief delay to allow state update to complete
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 0);
+  }, [valgtDeltager]);
 
-  const storeStartTime = useCallback((d: Deltager, time: string) => {
+  const storeStartTime = (d: Deltager, time: string) => {
     // Bruk context sin synk-funksjon (optimistisk + backend)
     if (valgtEtappe == null) return;
     updateStartTime(d.startnummer, valgtEtappe, time);
-  }, [updateStartTime, valgtEtappe]);
+  };
 
-  const registerNow = useCallback(() => {
+  const registerNow = () => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -73,9 +81,9 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, tid);
     showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
     setShowManual(false); setManualInput('');
-  }, [valgtDeltager, valgtEtappe, existingEtappeStart, storeStartTime, showMessage]);
+  };
 
-  const saveManual = useCallback(() => {
+  const saveManual = () => {
     if (!valgtDeltager || valgtEtappe == null) return;
     const formatted = formatManualStart(manualInput);
     if (!formatted) return;
@@ -87,7 +95,7 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, formatted);
     showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     setManualInput(''); setShowManual(false);
-  }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage]);
+  };
 
   const confirmOverride = () => {
     if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setConfirmOverrideOpen(false); return; }
@@ -146,7 +154,7 @@ const StartTimeRegister: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe, registerNow, saveManual, setEtappeStatus, editDeltager, showMessage]);
+  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe, setEtappeStatus, editDeltager, showMessage]);
 
   // Self-heal persisted invalid state: if step=2 but no valgtEtappe, or step is outside expected range
   useEffect(() => {
@@ -227,6 +235,17 @@ const StartTimeRegister: React.FC = () => {
               variant="outlined"
               fullWidth
               inputRef={autoInputRef}
+              InputProps={{
+                ...params.InputProps,
+                readOnly: true,
+                sx: {
+                  cursor: 'pointer',
+                  '& input': {
+                    cursor: 'pointer !important',
+                    caretColor: 'transparent'
+                  }
+                }
+              }}
             />
           )}
           sx={{ mb: 3 }}

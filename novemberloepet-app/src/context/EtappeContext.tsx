@@ -34,6 +34,7 @@ type EtappeContextType = {
   loadingEtapper: boolean;
   etapperError: string | null;
   reloadEtapper: () => Promise<boolean>; // endret fra Promise<void>
+  saveEtapperToBack4app: () => Promise<boolean>; // New function to save to back4app
 };
 
 const EtappeContext = createContext<EtappeContextType | undefined>(undefined);
@@ -62,6 +63,32 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setEtapperError(null);
     try {
       const json = await fetchEtapper();
+      
+      // Log the actual response for debugging
+      console.log('API Response from /api/etapper:', json);
+      
+      // Handle back4app format: {"results": [...]}
+      if (json && typeof json === 'object' && 'results' in json && Array.isArray((json as any).results)) {
+        const results = (json as any).results;
+        if (results.length > 0) {
+          // If we have results, look for etapper data in the first result
+          const firstResult = results[0];
+          if (firstResult && typeof firstResult === 'object' && 'etapper' in firstResult && Array.isArray(firstResult.etapper)) {
+            const list = firstResult.etapper as Etappe[];
+            setEtapper(list);
+            setRemoteId(firstResult.objectId || firstResult.id || null);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+            setLoadingEtapper(false);
+            return true;
+          }
+        }
+        // Empty results array - no data exists yet, fall back to default
+        console.log('Empty results from back4app, using default etapper');
+        setLoadingEtapper(false);
+        return false;
+      }
+      
+      // Check if response is an object with etapper array (old format)
       if (json && typeof json === 'object' && 'etapper' in json && Array.isArray((json as any).etapper)) {
         const list = (json as any).etapper as Etappe[];
         setEtapper(list);
@@ -70,22 +97,44 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setLoadingEtapper(false);
         return true;
       }
+      
+      // Check if response is directly an array
       if (Array.isArray(json)) {
         setEtapper(json as Etappe[]);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(json)); } catch {}
         setLoadingEtapper(false);
         return true;
       }
-      throw new Error('Ukjent responsformat fra /api/etapper');
+      
+      // Check if response is an error message or empty
+      if (!json || (typeof json === 'object' && Object.keys(json).length === 0)) {
+        console.warn('Empty or null response from /api/etapper, using fallback');
+        setLoadingEtapper(false);
+        return false;
+      }
+      
+      // Log detailed error information
+      console.error('Unexpected response format from /api/etapper:', {
+        type: typeof json,
+        isArray: Array.isArray(json),
+        keys: typeof json === 'object' ? Object.keys(json) : 'N/A',
+        response: json
+      });
+      
+      throw new Error(`Ukjent responsformat fra /api/etapper. Type: ${typeof json}, Keys: ${typeof json === 'object' ? Object.keys(json).join(', ') : 'N/A'}`);
     } catch (e: any) {
       const msg = e?.message || String(e);
+      console.error('Error in loadFromProxy:', e);
+      
       if (attempt < 3) {
-        // enkel eksponentiell backoff
+        // Simple exponential backoff
         const backoff = 300 * Math.pow(2, attempt - 1);
+        console.log(`Retrying loadFromProxy in ${backoff}ms (attempt ${attempt + 1}/3)`);
         await new Promise(r => setTimeout(r, backoff));
         return loadFromProxy(attempt + 1);
       }
-      console.warn('Failed to load etapper from proxy, falling back to local', e);
+      
+      console.warn('Failed to load etapper from proxy after 3 attempts, falling back to local data', e);
       setEtapperError(msg);
       setLoadingEtapper(false);
       return false;
@@ -151,6 +200,16 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     })();
   };
 
+  const saveEtapperToBack4app = async (): Promise<boolean> => {
+    try {
+      await saveToProxy(etapper);
+      return true;
+    } catch (e) {
+      console.error('Error saving etapper to back4app:', e);
+      return false;
+    }
+  };
+
   return (
     <EtappeContext.Provider value={{
       etapper: etapper as Etappe[],
@@ -161,7 +220,8 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       resetEtapper,
       loadingEtapper,
       etapperError: etapperError, // eksplisitt union
-      reloadEtapper
+      reloadEtapper,
+      saveEtapperToBack4app
     }}>
       {children}
     </EtappeContext.Provider>
