@@ -1,5 +1,6 @@
 import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ReplaceConfirmDialog from '../components/common/ReplaceConfirmDialog';
 
 import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
@@ -23,7 +24,14 @@ const StartTimeRegister: React.FC = () => {
   const [valgtDeltagerStartnummer, setValgtDeltagerStartnummer] = usePersistentState<string | null>('starttime.selectedStartnummer', null);
   const [confirmEtappeChangeOpen, setConfirmEtappeChangeOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  // replace-confirmation removed for start-time flow; actions perform immediately
+  // Unified replace confirmation: either replace existing starttid with a status (DNS/DNF)
+  // or replace existing status with a starttid. pendingReplace holds the intent.
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
+  const [pendingReplace, setPendingReplace] = useState<
+    | { kind: 'SET_STATUS'; status: 'DNS' | 'DNF' }
+    | { kind: 'SET_START'; time: string }
+    | null
+  >(null);
   const autoInputRef = useRef<HTMLInputElement | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
   const isUpdatingRef = useRef(false);
@@ -76,8 +84,8 @@ const StartTimeRegister: React.FC = () => {
     const tid = `${hh}:${mm}`;
     // If there's a DNS/DNF status, confirm before replacing it with an actual start time
     if (existingEtappeStatus === 'DNS' || existingEtappeStatus === 'DNF') {
-      setPendingAction('NOW');
-      setConfirmOverrideOpen(true);
+      setPendingReplace({ kind: 'SET_START', time: tid });
+      setConfirmReplaceOpen(true);
       return;
     }
     if (existingEtappeStart) {
@@ -101,8 +109,8 @@ const StartTimeRegister: React.FC = () => {
     if (!formatted) return;
     // If there's a DNS/DNF status, confirm before replacing it with an actual start time
     if (existingEtappeStatus === 'DNS' || existingEtappeStatus === 'DNF') {
-      setPendingAction('MANUAL');
-      setConfirmOverrideOpen(true);
+      setPendingReplace({ kind: 'SET_START', time: formatted });
+      setConfirmReplaceOpen(true);
       return;
     }
     if (existingEtappeStart) {
@@ -120,9 +128,35 @@ const StartTimeRegister: React.FC = () => {
     setManualInput(''); setShowManual(false);
   }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage, existingEtappeStatus]);
 
-  // confirmOverride/cancelOverride were inlined into the Dialog actions; helpers removed to avoid unused-var warnings
-
   // Confirm or cancel the pending replace action
+  const confirmReplace = async () => {
+    if (!valgtDeltager || valgtEtappe == null || !pendingReplace) {
+      setConfirmReplaceOpen(false);
+      setPendingReplace(null);
+      return;
+    }
+    if (pendingReplace.kind === 'SET_START') {
+      // remove status and store the start time
+      setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'NONE');
+      const ok = await storeStartTime(valgtDeltager, pendingReplace.time);
+      if (ok) showMessage(`Start-tid ${pendingReplace.time} registrert for #${valgtDeltager.startnummer}`);
+      else showMessage('Kunne ikke lagre start-tid til backend');
+    } else if (pendingReplace.kind === 'SET_STATUS') {
+      // remove existing starttid and set status
+      await deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
+      setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, pendingReplace.status);
+      showMessage(`${pendingReplace.status} registrert for #${valgtDeltager.startnummer}`);
+      setShowManual(false); setManualInput('');
+    }
+    setPendingReplace(null);
+    setConfirmReplaceOpen(false);
+  };
+
+  const cancelReplace = () => {
+    setPendingReplace(null);
+    setConfirmReplaceOpen(false);
+  };
+
   // Autofokus på manuell felt når aktivert
   useEffect(() => {
     if (showManual) {
@@ -146,14 +180,8 @@ const StartTimeRegister: React.FC = () => {
         if (valgtEtappe != null) {
           // Mirror button behavior: if there's an existing start time, ask for confirmation
           if (existingEtappeStart) {
-            // No confirmation UI in start-time flow; replace start-tid with DNS immediately
-            deleteStartTime(valgtDeltager.startnummer, valgtEtappe).then(() => {
-              setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
-              showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
-            }).catch(() => {
-              setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
-              showMessage(`DNS registrert (lokalt) for #${valgtDeltager.startnummer}`);
-            });
+            setPendingReplace({ kind: 'SET_STATUS', status: 'DNS' });
+            setConfirmReplaceOpen(true);
             return;
           }
           setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
@@ -274,7 +302,9 @@ const StartTimeRegister: React.FC = () => {
           <Stack spacing={2}>
             <Typography variant="subtitle1">#{valgtDeltager.startnummer} {valgtDeltager.navn}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {existingEtappeStart ? `Eksisterende start-tid (etappe): ${existingEtappeStart}` : 'Ingen start-tid registrert for etappen'}
+              {existingEtappeStart && existingEtappeStatus !== 'DNS' && existingEtappeStatus !== 'DNF'
+                ? `Eksisterende start-tid (etappe): ${existingEtappeStart}`
+                : 'Ingen start-tid registrert for etappen'}
             </Typography>
             {existingEtappeStatus && existingEtappeStatus !== 'NONE' && (
               <Typography variant="body2" color="text.secondary">Status: {existingEtappeStatus}</Typography>
@@ -327,8 +357,8 @@ const StartTimeRegister: React.FC = () => {
                 } else {
                   // If there is already a registered starttid for this etappe, confirm before replacing it with DNS
                   if (existingEtappeStart) {
-                    setPendingAction('NOW');
-                    setConfirmOverrideOpen(true);
+                    setPendingReplace({ kind: 'SET_STATUS', status: 'DNS' });
+                    setConfirmReplaceOpen(true);
                     return;
                   }
                   // No existing starttid -> set DNS and ensure resultater cleared
@@ -353,8 +383,8 @@ const StartTimeRegister: React.FC = () => {
                   showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
                 } else {
                   if (existingEtappeStart) {
-                    setPendingAction('NOW');
-                    setConfirmOverrideOpen(true);
+                    setPendingReplace({ kind: 'SET_STATUS', status: 'DNF' });
+                    setConfirmReplaceOpen(true);
                     return;
                   }
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNF');
@@ -384,37 +414,14 @@ const StartTimeRegister: React.FC = () => {
             {message && <Typography color="success.main">{message}</Typography>}
           </Stack>
         )}
-        <Dialog open={confirmOverrideOpen} onClose={() => { setPendingAction(null); setConfirmOverrideOpen(false); }}>
-          <DialogTitle>Overskriv eksisterende start-tid?</DialogTitle>
-          <DialogContent>
-            <Typography>Det finnes allerede en start-tid for denne etappen ({existingEtappeStart}). Vil du overskrive den?</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => { setPendingAction(null); setConfirmOverrideOpen(false); }}>Avbryt</Button>
-            <Button variant="contained" onClick={async () => {
-              // Inline the confirmOverride logic to avoid name-resolution issues
-              if (!valgtDeltager || !pendingAction || valgtEtappe == null) { setPendingAction(null); setConfirmOverrideOpen(false); return; }
-              const now = new Date();
-              const hh = String(now.getHours()).padStart(2, '0');
-              const mm = String(now.getMinutes()).padStart(2, '0');
-              if (pendingAction === 'NOW') {
-                const tid = `${hh}:${mm}`;
-                const ok = await storeStartTime(valgtDeltager, tid);
-                if (ok) { showMessage(`Start-tid oppdatert til ${tid}`); localStorage.clear(); }
-                else { showMessage('Kunne ikke lagre start-tid til backend'); }
-              } else if (pendingAction === 'MANUAL') {
-                const formatted = formatManualStart(manualInput);
-                if (formatted) {
-                  const ok = await storeStartTime(valgtDeltager, formatted);
-                  if (ok) { showMessage(`Start-tid oppdatert til ${formatted}`); setManualInput(''); setShowManual(false); localStorage.clear(); }
-                  else { showMessage('Kunne ikke lagre start-tid til backend'); }
-                }
-              }
-              setPendingAction(null);
-              setConfirmOverrideOpen(false);
-            }}>Overskriv</Button>
-          </DialogActions>
-        </Dialog>
+        <ReplaceConfirmDialog
+          open={confirmReplaceOpen}
+          pendingReplace={pendingReplace as any}
+          existingTime={existingEtappeStart}
+          existingStatus={existingEtappeStatus}
+          onConfirm={confirmReplace}
+          onCancel={cancelReplace}
+        />
         <Dialog open={confirmEtappeChangeOpen} onClose={() => setConfirmEtappeChangeOpen(false)}>
           <DialogTitle>Bekreft etappebytte</DialogTitle>
           <DialogContent>

@@ -253,8 +253,8 @@ const FinishTimeRegister: React.FC = () => {
             if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
             else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
 
-            // Vis slutt-tid-chip hvis det finnes en slutt-tid, uansett status
-            const timeChip = faktiskFinishTid
+            // Vis slutt-tid-chip bare hvis det finnes en slutt-tid og status ikke er DNS/DNF
+            const timeChip = faktiskFinishTid && status !== 'DNS' && status !== 'DNF'
               ? <Chip label={faktiskFinishTid} color="success" size="small" sx={{ ml: 1 }} />
               : null;
 
@@ -297,7 +297,9 @@ const FinishTimeRegister: React.FC = () => {
           <Stack spacing={2}>
             <Typography variant="subtitle1">#{valgtDeltager.startnummer} {valgtDeltager.navn}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {existingEtappeFinish ? `Eksisterende slutt-tid (etappe): ${existingEtappeFinish}` : 'Ingen slutt-tid registrert for etappen'}
+              {existingEtappeFinish && existingEtappeStatus !== 'DNS' && existingEtappeStatus !== 'DNF'
+                ? `Eksisterende slutt-tid (etappe): ${existingEtappeFinish}`
+                : 'Ingen slutt-tid registrert for etappen'}
             </Typography>
             {existingEtappeStatus && existingEtappeStatus !== 'NONE' && (
               <Typography variant="body2" color="text.secondary">Status: {existingEtappeStatus}</Typography>
