@@ -9,15 +9,15 @@ const Home: React.FC = () => {
 
   const quickActions = [
     {
-      title: 'Registrer Starttid',
-      description: 'Registrer starttid for deltagere på hver etappe',
+      title: 'Registrer Start-tid',
+      description: 'Registrer start-tid for deltagere på hver etappe',
       icon: <PlayArrowIcon sx={{ fontSize: 40 }} />,
       path: '/starttid',
       color: 'primary' as const,
     },
     {
-      title: 'Registrer Sluttid',
-      description: 'Registrer sluttid for deltagere på hver etappe',
+      title: 'Registrer Slutt-tid',
+      description: 'Registrer slutt-tid for deltagere på hver etappe',
       icon: <FlagIcon sx={{ fontSize: 40 }} />,
       path: '/sluttid',
       color: 'secondary' as const,

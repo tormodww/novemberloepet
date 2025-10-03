@@ -156,7 +156,7 @@ const Registration: React.FC = () => {
             <MenuItem key={cls} value={cls}>{cls}</MenuItem>
           ))}
         </TextField>
-        <TextField label="Starttid" name="starttid" value={form.starttid} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
+        <TextField label="Start-tid" name="starttid" value={form.starttid} onChange={handleChange} fullWidth margin="normal" disabled={saving} />
         <Box mt={2}>
           <Button type="submit" variant="contained" color="primary" disabled={saving || !!errors.email || !!errors.telefon || !!errors.startnummer}>
             {saving ? 'Lagrer...' : 'Registrer'}

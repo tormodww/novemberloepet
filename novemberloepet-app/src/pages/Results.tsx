@@ -83,7 +83,7 @@ const Results: React.FC = () => {
                   <TableCell>Navn</TableCell>
                   <TableCell>Sykkel</TableCell>
                   <TableCell>Modell</TableCell>
-                  <TableCell>Starttid</TableCell>
+                  <TableCell>Start-tid</TableCell>
                   {Array.from({ length: numEtapper }, (_, i) => (
                     <TableCell key={i}>{safeEtapper[i]?.navn ? `${safeEtapper[i].navn}` : `Etappe ${i + 1} tid`}</TableCell>
                   ))}
@@ -137,7 +137,7 @@ const Results: React.FC = () => {
           <TextField label="Sykkel" value={editInfo.sykkel || ''} onChange={e => handleEditInfoChange('sykkel', e.target.value)} fullWidth margin="dense" />
           <TextField label="Modell" value={editInfo.modell || ''} onChange={e => handleEditInfoChange('modell', e.target.value)} fullWidth margin="dense" />
           <TextField label="Klasse" value={editInfo.klasse || ''} onChange={e => handleEditInfoChange('klasse', e.target.value)} fullWidth margin="dense" />
-          <TextField label="Starttid" value={editInfo.starttid || ''} onChange={e => handleEditInfoChange('starttid', e.target.value)} fullWidth margin="dense" />
+          <TextField label="Start-tid" value={editInfo.starttid || ''} onChange={e => handleEditInfoChange('starttid', e.target.value)} fullWidth margin="dense" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditInfoOpen(false)}>Avbryt</Button>
@@ -152,14 +152,14 @@ const Results: React.FC = () => {
             <Box key={i} sx={{ mb: 2 }}>
               <Typography variant="subtitle2">Etappe {r.etappe}</Typography>
               <TextField
-                label="Starttid"
+                label="Start-tid"
                 value={r.starttid || ''}
                 onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, starttid: e.target.value } : res))}
                 fullWidth
                 margin="dense"
               />
               <TextField
-                label="Sluttid"
+                label="Slutt-tid"
                 value={r.maltid || ''}
                 onChange={e => setEditResultater(prev => prev.map((res, idx) => idx === i ? { ...res, maltid: e.target.value } : res))}
                 fullWidth

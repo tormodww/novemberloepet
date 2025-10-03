@@ -4,7 +4,7 @@
 export type EtappeResultat = {
   etappe: number;
   starttid: string;
-  slutttid?: string; // Registrert slutttid for etappen
+  sluttTid?: string; // Registrert slutt-tid for etappen
   maltid: string;
   idealtid: string;
   diff: string;

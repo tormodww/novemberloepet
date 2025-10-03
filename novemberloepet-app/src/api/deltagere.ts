@@ -11,7 +11,7 @@ export async function fetchAllDeltagere(): Promise<RemoteDeltagere[]> {
 }
 
 function sanitizePayload<T extends object>(payload: T): T {
-  const { createdAt, updatedAt, ...rest } = payload as any;
+  const { createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = payload as any;
   return rest as T;
 }
 
@@ -37,7 +37,7 @@ export async function findRemoteByStartnummer(startnummer: string): Promise<Remo
   }
 }
 
-export async function updateFinishTime(startnummer: string, etappe: number, slutttid: string): Promise<boolean> {
+export async function updateFinishTime(startnummer: string, etappe: number, sluttTid: string): Promise<boolean> {
   // Find the deltager by startnummer
   let deltager = await findRemoteByStartnummer(startnummer);
   if (!deltager) {
@@ -46,7 +46,7 @@ export async function updateFinishTime(startnummer: string, etappe: number, slut
   }
   // Update the correct etappe result
   const resultater = deltager.resultater?.map(r =>
-    r.etappe === etappe ? { ...r, slutttid } : r
+    r.etappe === etappe ? { ...r, sluttTid } : r
   ) ?? [];
   const id = deltager.objectId || deltager.id || deltager.parseId;
   if (!id) return false;
@@ -61,9 +61,9 @@ export async function deleteFinishTime(startnummer: string, etappe: number): Pro
     // Create deltager if not found
     deltager = await createDeltagere({ startnummer });
   }
-  // Remove slutttid from the correct etappe result
+  // Remove slutt-tid from the correct etappe result
   const resultater = deltager.resultater?.map(r =>
-    r.etappe === etappe ? { ...r, slutttid: '' } : r
+    r.etappe === etappe ? { ...r, sluttTid: '' } : r
   ) ?? [];
   const id = deltager.objectId || deltager.id || deltager.parseId;
   if (!id) return false;

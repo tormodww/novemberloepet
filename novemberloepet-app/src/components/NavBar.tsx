@@ -31,8 +31,8 @@ const NavBar: React.FC = () => {
 
   const navItems: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
     { key: 'home', label: 'Hjem', icon: <HomeIcon />, path: '/' },
-    { key: 'starttime', label: 'Starttid', icon: <PlayArrowIcon />, path: '/starttid' },
-    { key: 'finishtime', label: 'Slutttid', icon: <FlagIcon />, path: '/sluttid' },
+    { key: 'starttime', label: 'Start-tid', icon: <PlayArrowIcon />, path: '/starttid' },
+    { key: 'finishtime', label: 'Slutt-tid', icon: <FlagIcon />, path: '/sluttid' },
     { key: 'results', label: 'Resultater', icon: <AssessmentIcon />, path: '/results' },
     { key: 'admin', label: 'Admin', icon: <AdminPanelSettingsIcon />, path: '/admin' }
   ];

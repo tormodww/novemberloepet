@@ -28,7 +28,7 @@ const sortableFields = [
   { id: 'navn', label: 'Navn' },
   { id: 'klasse', label: 'Klasse' },
   { id: 'sykkel', label: 'Sykkel' },
-  { id: 'starttid', label: 'Starttid' },
+  { id: 'starttid', label: 'Start-tid' },
 ] as const;
 type SortField = typeof sortableFields[number]['id'];
 type SortOrder = 'asc' | 'desc';

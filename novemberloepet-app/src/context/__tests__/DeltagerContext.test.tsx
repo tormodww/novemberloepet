@@ -54,6 +54,8 @@ describe('DeltagerContext', () => {
     function TestComp() {
       ctx = useDeltagerContext();
       const [_, setTick] = React.useState(0);
+      // We're intentionally watching ctx.deltagere here to force a re-render in tests.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       React.useEffect(() => { setTick(t => t + 1); }, [ctx.deltagere]);
       return null;
     }
@@ -83,6 +85,8 @@ describe('DeltagerContext', () => {
     function TestComp() {
       ctx = useDeltagerContext();
       const [_, setTick] = React.useState(0);
+      // We're intentionally watching ctx.deltagere here to force a re-render in tests.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       React.useEffect(() => { setTick(t => t + 1); }, [ctx.deltagere]);
       return null;
     }

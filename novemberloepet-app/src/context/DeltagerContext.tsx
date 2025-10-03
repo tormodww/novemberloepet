@@ -406,7 +406,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
         ? {
             ...d,
             resultater: d.resultater?.map(r =>
-              r.etappe === etappe ? { ...r, slutttid: '' } : r
+              r.etappe === etappe ? { ...r, sluttTid: '' } : r
             ) ?? []
           }
         : d
@@ -418,7 +418,7 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       return true;
     } catch (e) {
       // Optionally enqueue for retry
-      enqueueOp({ id: `${Date.now()}-deletefinish`, type: 'update', startnummer, payload: { etappe, slutttid: '' }, attempts: 0 });
+      enqueueOp({ id: `${Date.now()}-deletefinish`, type: 'update', startnummer, payload: { etappe, sluttTid: '' }, attempts: 0 });
       return false;
     }
   }, [enqueueOp]);

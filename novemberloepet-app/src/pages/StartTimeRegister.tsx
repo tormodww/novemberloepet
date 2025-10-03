@@ -80,10 +80,10 @@ const StartTimeRegister: React.FC = () => {
     }
     const ok = await storeStartTime(valgtDeltager, tid);
     if (ok) {
-      showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
+      showMessage(`Start-tid ${tid} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
-      showMessage('Kunne ikke lagre starttid til backend');
+      showMessage('Kunne ikke lagre start-tid til backend');
     }
     setShowManual(false); setManualInput('');
   }, [valgtDeltager, valgtEtappe, existingEtappeStart, storeStartTime, showMessage]);
@@ -99,10 +99,10 @@ const StartTimeRegister: React.FC = () => {
     }
     const ok = await storeStartTime(valgtDeltager, formatted);
     if (ok) {
-      showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
+      showMessage(`Start-tid ${formatted} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
-      showMessage('Kunne ikke lagre starttid til backend');
+      showMessage('Kunne ikke lagre start-tid til backend');
     }
     setManualInput(''); setShowManual(false);
   }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeStart, storeStartTime, showMessage]);
@@ -116,21 +116,21 @@ const StartTimeRegister: React.FC = () => {
       const tid = `${hh}:${mm}`;
       const ok = await storeStartTime(valgtDeltager, tid);
       if (ok) {
-        showMessage(`Starttid oppdatert til ${tid}`);
+        showMessage(`Start-tid oppdatert til ${tid}`);
         localStorage.clear();
       } else {
-        showMessage('Kunne ikke lagre starttid til backend');
+        showMessage('Kunne ikke lagre start-tid til backend');
       }
     } else if (pendingAction === 'MANUAL') {
       const formatted = formatManualStart(manualInput);
       if (formatted) {
         const ok = await storeStartTime(valgtDeltager, formatted);
         if (ok) {
-          showMessage(`Starttid oppdatert til ${formatted}`);
+          showMessage(`Start-tid oppdatert til ${formatted}`);
           setManualInput(''); setShowManual(false);
           localStorage.clear();
         } else {
-          showMessage('Kunne ikke lagre starttid til backend');
+          showMessage('Kunne ikke lagre start-tid til backend');
         }
       }
     }
@@ -279,7 +279,7 @@ const StartTimeRegister: React.FC = () => {
           <Stack spacing={2}>
             <Typography variant="subtitle1">#{valgtDeltager.startnummer} {valgtDeltager.navn}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {existingEtappeStart ? `Eksisterende starttid (etappe): ${existingEtappeStart}` : 'Ingen starttid registrert for etappen'}
+              {existingEtappeStart ? `Eksisterende start-tid (etappe): ${existingEtappeStart}` : 'Ingen start-tid registrert for etappen'}
             </Typography>
             {existingEtappeStatus && existingEtappeStatus !== 'NONE' && (
               <Typography variant="body2" color="text.secondary">Status: {existingEtappeStatus}</Typography>
@@ -291,7 +291,7 @@ const StartTimeRegister: React.FC = () => {
               sx={{ py: 2, fontSize: 20 }}
               onClick={registerNow}
             >
-              {existingEtappeStart ? 'Overskriv starttid = nå' : 'Registrer starttid = nå'}
+              {existingEtappeStart ? 'Overskriv start-tid = nå' : 'Registrer start-tid = nå'}
             </Button>
             {/* Flyttet manuell toggle rett under registrer-knappen */}
             <Button
@@ -305,7 +305,7 @@ const StartTimeRegister: React.FC = () => {
             {showManual && (
               <Stack spacing={1}>
                 <TextField
-                  label="Manuell starttid (hhmm)"
+                  label="Manuell start-tid (hhmm)"
                   helperText="Skriv f.eks 0932 for 09:32"
                   value={manualInput}
                   onChange={e => setManualInput(e.target.value)}
@@ -371,16 +371,16 @@ const StartTimeRegister: React.FC = () => {
                   setConfirmDeleteOpen(true);
                 }}
               >
-                🗑️ Slett starttid
+                🗑️ Slett start-tid
               </Button>
             )}
             {message && <Typography color="success.main">{message}</Typography>}
           </Stack>
         )}
         <Dialog open={confirmOverrideOpen} onClose={cancelOverride}>
-          <DialogTitle>Overskriv eksisterende starttid?</DialogTitle>
+          <DialogTitle>Overskriv eksisterende start-tid?</DialogTitle>
           <DialogContent>
-            <Typography>Det finnes allerede en starttid for denne etappen ({existingEtappeStart}). Vil du overskrive den?</Typography>
+            <Typography>Det finnes allerede en start-tid for denne etappen ({existingEtappeStart}). Vil du overskrive den?</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={cancelOverride}>Avbryt</Button>
@@ -405,16 +405,16 @@ const StartTimeRegister: React.FC = () => {
           </DialogActions>
         </Dialog>
         <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-          <DialogTitle>Bekreft sletting av starttid</DialogTitle>
+          <DialogTitle>Bekreft sletting av start-tid</DialogTitle>
           <DialogContent>
-            <Typography>Er du sikker på at du vil slette starttiden for denne etappen?</Typography>
+            <Typography>Er du sikker på at du vil slette start-tiden for denne etappen?</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmDeleteOpen(false)}>Avbryt</Button>
             <Button variant="contained" onClick={() => {
               if (!valgtDeltager || valgtEtappe == null) return;
               deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
-              showMessage(`Starttid slettet for #${valgtDeltager.startnummer}`);
+              showMessage(`Start-tid slettet for #${valgtDeltager.startnummer}`);
               setShowManual(false);
               setManualInput('');
               setConfirmDeleteOpen(false);

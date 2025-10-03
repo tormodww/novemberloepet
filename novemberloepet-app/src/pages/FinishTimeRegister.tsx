@@ -30,7 +30,7 @@ const FinishTimeRegister: React.FC = () => {
   const existingEtappeFinish = (() => {
     if (valgtEtappe == null || !valgtDeltager) return '';
     const res = valgtDeltager.resultater?.[valgtEtappe - 1];
-    return res?.slutttid || '';
+    return res?.sluttTid || '';
   })();
 
   const existingEtappeStatus = (() => {
@@ -80,10 +80,10 @@ const FinishTimeRegister: React.FC = () => {
     }
     const ok = await storeFinishTime(valgtDeltager, tid);
     if (ok) {
-      showMessage(`Slutttid ${tid} registrert for #${valgtDeltager.startnummer}`);
+      showMessage(`Slutt-tid ${tid} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
-      showMessage('Kunne ikke lagre slutttid til backend');
+      showMessage('Kunne ikke lagre slutt-tid til backend');
     }
     setShowManual(false); setManualInput('');
   }, [valgtDeltager, valgtEtappe, existingEtappeFinish, storeFinishTime, showMessage]);
@@ -99,10 +99,10 @@ const FinishTimeRegister: React.FC = () => {
     }
     const ok = await storeFinishTime(valgtDeltager, formatted);
     if (ok) {
-      showMessage(`Slutttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
+      showMessage(`Slutt-tid ${formatted} registrert for #${valgtDeltager.startnummer}`);
       localStorage.clear();
     } else {
-      showMessage('Kunne ikke lagre slutttid til backend');
+      showMessage('Kunne ikke lagre slutt-tid til backend');
     }
     setManualInput(''); setShowManual(false);
   }, [valgtDeltager, valgtEtappe, manualInput, existingEtappeFinish, storeFinishTime, showMessage]);
@@ -116,21 +116,21 @@ const FinishTimeRegister: React.FC = () => {
       const tid = `${hh}:${mm}`;
       const ok = await storeFinishTime(valgtDeltager, tid);
       if (ok) {
-        showMessage(`Slutttid oppdatert til ${tid}`);
+        showMessage(`Slutt-tid oppdatert til ${tid}`);
         localStorage.clear();
       } else {
-        showMessage('Kunne ikke lagre slutttid til backend');
+        showMessage('Kunne ikke lagre slutt-tid til backend');
       }
     } else if (pendingAction === 'MANUAL') {
       const formatted = formatManualStart(manualInput);
       if (formatted) {
         const ok = await storeFinishTime(valgtDeltager, formatted);
         if (ok) {
-          showMessage(`Slutttid oppdatert til ${formatted}`);
+          showMessage(`Slutt-tid oppdatert til ${formatted}`);
           setManualInput(''); setShowManual(false);
           localStorage.clear();
         } else {
-          showMessage('Kunne ikke lagre slutttid til backend');
+          showMessage('Kunne ikke lagre slutt-tid til backend');
         }
       }
     }
@@ -165,7 +165,7 @@ const FinishTimeRegister: React.FC = () => {
       } else if (e.key.toLowerCase() === 'f') {
         if (valgtEtappe != null) {
           setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'FINISH');
-          editDeltager(valgtDeltager.navn, { slutttid: '' });
+          editDeltager(valgtDeltager.navn, { sluttTid: '' });
           showMessage(`Finish registrert for #${valgtDeltager.startnummer}`);
         }
       } else if (e.key === 'Escape') {
@@ -208,7 +208,7 @@ const FinishTimeRegister: React.FC = () => {
     );
   }
 
-  // Steg 2: Velg deltager og registrer slutttid/FINISH
+  // Steg 2: Velg deltager og registrer slutt-tid/FINISH
   if (step === 2 && valgtEtappe !== null) {
     const isDNS = existingEtappeStatus === 'DNS';
     const isDNF = existingEtappeStatus === 'DNF';
@@ -230,13 +230,13 @@ const FinishTimeRegister: React.FC = () => {
           renderOption={(props, option) => {
             const res = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1] : undefined;
             const status = res?.status;
-            const faktiskFinishTid = res?.slutttid;
+            const faktiskFinishTid = res?.sluttTid;
 
             let statusChip: React.ReactNode = null;
             if (status === 'DNS') statusChip = <Chip label="DNS" color="error" size="small" sx={{ ml: 1 }} />;
             else if (status === 'DNF') statusChip = <Chip label="DNF" color="warning" size="small" sx={{ ml: 1 }} />;
 
-            // Vis slutttid-chip hvis det finnes en slutttid, uansett status
+            // Vis slutt-tid-chip hvis det finnes en slutt-tid, uansett status
             const timeChip = faktiskFinishTid
               ? <Chip label={faktiskFinishTid} color="success" size="small" sx={{ ml: 1 }} />
               : null;
@@ -280,7 +280,7 @@ const FinishTimeRegister: React.FC = () => {
           <Stack spacing={2}>
             <Typography variant="subtitle1">#{valgtDeltager.startnummer} {valgtDeltager.navn}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {existingEtappeFinish ? `Eksisterende slutttid (etappe): ${existingEtappeFinish}` : 'Ingen slutttid registrert for etappen'}
+              {existingEtappeFinish ? `Eksisterende slutt-tid (etappe): ${existingEtappeFinish}` : 'Ingen slutt-tid registrert for etappen'}
             </Typography>
             {existingEtappeStatus && existingEtappeStatus !== 'NONE' && (
               <Typography variant="body2" color="text.secondary">Status: {existingEtappeStatus}</Typography>
@@ -292,7 +292,7 @@ const FinishTimeRegister: React.FC = () => {
               sx={{ py: 2, fontSize: 20 }}
               onClick={registerNow}
             >
-              {existingEtappeFinish ? 'Overskriv slutttid = nå' : 'Registrer slutttid = nå'}
+              {existingEtappeFinish ? 'Overskriv slutt-tid = nå' : 'Registrer slutt-tid = nå'}
             </Button>
             {/* Flyttet manuell toggle rett under registrer-knappen */}
             <Button
@@ -306,7 +306,7 @@ const FinishTimeRegister: React.FC = () => {
             {showManual && (
               <Stack spacing={1}>
                 <TextField
-                  label="Manuell slutttid (hhmm)"
+                  label="Manuell slutt-tid (hhmm)"
                   helperText="Skriv f.eks 0932 for 09:32"
                   value={manualInput}
                   onChange={e => setManualInput(e.target.value)}
@@ -332,7 +332,7 @@ const FinishTimeRegister: React.FC = () => {
                   showMessage(`DNS fjernet for #${valgtDeltager.startnummer}`);
                 } else {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
-                  editDeltager(valgtDeltager.navn, { slutttid: '' });
+                  editDeltager(valgtDeltager.navn, { sluttTid: '' });
                   showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
                   setShowManual(false); setManualInput('');
                 }
@@ -352,7 +352,7 @@ const FinishTimeRegister: React.FC = () => {
                   showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
                 } else {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNF');
-                  editDeltager(valgtDeltager.navn, { slutttid: '' });
+                  editDeltager(valgtDeltager.navn, { sluttTid: '' });
                   showMessage(`DNF registrert for #${valgtDeltager.startnummer}`);
                   setShowManual(false); setManualInput('');
                 }
@@ -360,7 +360,7 @@ const FinishTimeRegister: React.FC = () => {
             >
               {isDNF ? 'Fjern DNF' : 'Sett DNF'}
             </Button>
-            {/* Slett slutttid knapp - kun vis hvis det finnes en slutttid */}
+            {/* Slett slutt-tid knapp - kun vis hvis det finnes en slutt-tid */}
             {existingEtappeFinish && (
               <Button
                 variant="outlined"
@@ -372,16 +372,16 @@ const FinishTimeRegister: React.FC = () => {
                   setConfirmDeleteOpen(true);
                 }}
               >
-                🗑️ Slett slutttid
+                🗑️ Slett slutt-tid
               </Button>
             )}
             {message && <Typography color="success.main">{message}</Typography>}
           </Stack>
         )}
         <Dialog open={confirmOverrideOpen} onClose={cancelOverride}>
-          <DialogTitle>Overskriv eksisterende slutttid?</DialogTitle>
+          <DialogTitle>Overskriv eksisterende slutt-tid?</DialogTitle>
           <DialogContent>
-            <Typography>Det finnes allerede en slutttid for denne etappen ({existingEtappeFinish}). Vil du overskrive den?</Typography>
+            <Typography>Det finnes allerede en slutt-tid for denne etappen ({existingEtappeFinish}). Vil du overskrive den?</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={cancelOverride}>Avbryt</Button>
@@ -406,16 +406,16 @@ const FinishTimeRegister: React.FC = () => {
           </DialogActions>
         </Dialog>
         <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-          <DialogTitle>Bekreft sletting av slutttid</DialogTitle>
+          <DialogTitle>Bekreft sletting av slutt-tid</DialogTitle>
           <DialogContent>
-            <Typography>Er du sikker på at du vil slette slutttiden for denne etappen?</Typography>
+            <Typography>Er du sikker på at du vil slette slutt-tiden for denne etappen?</Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmDeleteOpen(false)}>Avbryt</Button>
             <Button variant="contained" onClick={() => {
               if (!valgtDeltager || valgtEtappe == null) return;
               deleteFinishTime(valgtDeltager.startnummer, valgtEtappe);
-              showMessage(`Slutttid slettet for #${valgtDeltager.startnummer}`);
+              showMessage(`Slutt-tid slettet for #${valgtDeltager.startnummer}`);
               setShowManual(false);
               setManualInput('');
               setConfirmDeleteOpen(false);
