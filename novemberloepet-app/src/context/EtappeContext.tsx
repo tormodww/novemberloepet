@@ -48,40 +48,6 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [etapperError, setEtapperError] = useState<string | null>(null);
   const [showSaveDefaultPrompt, setShowSaveDefaultPrompt] = useState(false);
 
-  // Always fetch etapper from backend on mount
-  useEffect(() => {
-    // Use reloadEtapper() which already handles the different backend response shapes
-    (async () => {
-      setLoadingEtapper(true);
-      try {
-        const ok = await reloadEtapper();
-        if (!ok) {
-          // nothing found on backend -> seed UI with defaults and prompt user to save
-          setEtapper(defaultEtapper);
-          setShowSaveDefaultPrompt(true);
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEtapper)); } catch {}
-        } else {
-          setShowSaveDefaultPrompt(false);
-        }
-      } catch (e) {
-        setEtapper([]);
-        setEtapperError('Kunne ikke hente etapper fra backend');
-        setShowSaveDefaultPrompt(false);
-      } finally {
-        setLoadingEtapper(false);
-      }
-    })();
-  }, [reloadEtapper]);
-
-  // Optionally keep localStorage updated for offline cache, but never use as initial source
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper));
-    } catch (e) {
-      // ignore storage errors
-    }
-  }, [etapper]);
-
   const loadFromProxy = useCallback(async (attempt = 1): Promise<boolean> => {
     setLoadingEtapper(true);
     setEtapperError(null);
@@ -168,6 +134,38 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const reloadEtapper = useCallback(async (): Promise<boolean> => {
     return loadFromProxy(1);
   }, [loadFromProxy]);
+
+  // Always fetch etapper from backend on mount
+  useEffect(() => {
+    setLoadingEtapper(true);
+    (async () => {
+      try {
+        const ok = await reloadEtapper();
+        if (!ok) {
+          setEtapper(defaultEtapper);
+          setShowSaveDefaultPrompt(true);
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEtapper)); } catch {}
+        } else {
+          setShowSaveDefaultPrompt(false);
+        }
+      } catch (e) {
+        setEtapper([]);
+        setEtapperError('Kunne ikke hente etapper fra backend');
+        setShowSaveDefaultPrompt(false);
+      } finally {
+        setLoadingEtapper(false);
+      }
+    })();
+  }, [reloadEtapper]);
+
+  // Optionally keep localStorage updated for offline cache, but never use as initial source
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(etapper));
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [etapper]);
 
   // sync to localStorage whenever etapper changes
   useEffect(() => {
