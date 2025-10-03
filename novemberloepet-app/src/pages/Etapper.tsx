@@ -1,12 +1,12 @@
 import SaveIcon from '@mui/icons-material/Save';
-import { Box, Button, FormControlLabel, IconButton, Paper, Stack,Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 
 import { useEtappeContext } from '../context/EtappeContext';
 import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {
-  const { etapper, updateEtappenavn, updateIdealtid, formatIdealTimeInput, resetEtapper } = useEtappeContext();
+  const { etapper, updateEtappenavn, updateIdealtid, resetEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
   const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
   const [saved, setSaved] = useState<Record<number, boolean>>({});
@@ -68,7 +68,7 @@ const Etapper: React.FC = () => {
     setTimeout(() => setSaved(prev => ({ ...prev, [nummer]: false })), 1500);
   };
 
-  const handleKey = (e: React.KeyboardEvent, nummer: number) => {
+  const handleKey = (e: React.KeyboardEvent, _nummer: number) => {
     if (e.key === 'Enter') {
       (e.target as HTMLElement).blur(); // trigger onBlur -> commit
     }

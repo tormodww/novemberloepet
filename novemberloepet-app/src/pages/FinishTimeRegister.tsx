@@ -86,13 +86,6 @@ const FinishTimeRegister: React.FC = () => {
 
   const resetManual = () => { setShowManual(false); setManualInput(''); };
 
-  const registerStatus = (status: 'DNS' | 'DNF') => {
-    if (!valgtDeltager || etappe == null) return;
-    setEtappeStatus(valgtDeltager.startnummer, etappe, status);
-    showMessage(`${status} registrert for #${valgtDeltager.startnummer}`);
-    resetManual();
-  };
-
   const confirmOverride = () => {
     if (!valgtDeltager || !pendingAction || etappe == null) { setConfirmOverrideOpen(false); return; }
     if (pendingAction === 'NOW') {

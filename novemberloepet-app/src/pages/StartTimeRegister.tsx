@@ -1,8 +1,7 @@
-import { Autocomplete, Box, Button, Chip,Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import React, { useCallback, useEffect, useState } from 'react';
 
-import type { EtappeResultat } from '../context/DeltagerContext';
-import { Deltager, useDeltagerContext } from '../context/DeltagerContext';
+import { Deltager, type EtappeResultat, useDeltagerContext } from '../context/DeltagerContext';
 import { useEtappeContext } from '../context/EtappeContext';
 import { useEphemeralMessage } from '../hooks/useEphemeralMessage';
 import { usePersistentState } from '../hooks/usePersistentState';
@@ -34,7 +33,7 @@ const StartTimeRegister: React.FC = () => {
     return res?.status || '';
   })();
 
-  const storeStartTime = (d: Deltager, time: string) => {
+  const storeStartTime = useCallback((d: Deltager, time: string) => {
     // Oppdater toppnivå starttid hvis ingen eller annen
     // Samtidig sett per-etappe starttid i resultater
     const ETAPPER = etapper.length;
@@ -44,9 +43,9 @@ const StartTimeRegister: React.FC = () => {
       nye[idx] = { ...nye[idx], starttid: time };
     }
     editDeltager(d.navn, { starttid: time, resultater: nye });
-  };
+  }, [editDeltager, etapper, valgtEtappe]);
 
-  const registerNow = () => {
+  const registerNow = useCallback(() => {
     if (!valgtDeltager) return;
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -61,9 +60,9 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, tid);
     showMessage(`Starttid ${tid} registrert for #${valgtDeltager.startnummer}`);
     setShowManual(false); setManualInput('');
-  };
+  }, [valgtDeltager, existingEtappeStart, storeStartTime, showMessage]);
 
-  const saveManual = () => {
+  const saveManual = useCallback(() => {
     if (!valgtDeltager) return;
     const formatted = formatManualStart(manualInput);
     if (!formatted) return;
@@ -75,7 +74,7 @@ const StartTimeRegister: React.FC = () => {
     storeStartTime(valgtDeltager, formatted);
     showMessage(`Starttid ${formatted} registrert for #${valgtDeltager.startnummer}`);
     setManualInput(''); setShowManual(false);
-  };
+  }, [valgtDeltager, manualInput, existingEtappeStart, storeStartTime, showMessage]);
 
   const confirmOverride = () => {
     if (!valgtDeltager || !pendingAction) { setConfirmOverrideOpen(false); return; }
@@ -103,9 +102,7 @@ const StartTimeRegister: React.FC = () => {
     setConfirmOverrideOpen(false);
   };
 
-  // Tastatursnarveier – vi holder avhengighetslisten bevisst smal for å unngå re-binding av handler hver render.
-  // Handlerne refererer kun til nødvendige reactive verdier; øvrige funksjoner er stabile nok i praksis.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Tastatursnarveier – vi holder avhengighetslisten eksplisitt komplett så lint er fornøyd.
   useEffect(() => {
     if (step !== 2 || !valgtDeltager) return;
     const handler = (e: KeyboardEvent) => {
@@ -129,7 +126,7 @@ const StartTimeRegister: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe]);
+  }, [step, valgtDeltager, showManual, manualInput, confirmOverrideOpen, existingEtappeStart, valgtEtappe, registerNow, saveManual, setEtappeStatus, editDeltager, showMessage]);
 
   // Self-heal persisted invalid state: if step=2 but no valgtEtappe, or step is outside expected range
   useEffect(() => {
