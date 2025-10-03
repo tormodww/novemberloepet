@@ -165,8 +165,12 @@ const StartTimeRegister: React.FC = () => {
       } else if (e.key.toLowerCase() === 'd') {
         if (valgtEtappe != null) {
           setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
-          editDeltager(valgtDeltager.navn, { starttid: '' });
-          showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+          // Clear the etappe-specific starttid (resultater) — use deleteStartTime so the UI and backend stay in sync.
+          deleteStartTime(valgtDeltager.startnummer, valgtEtappe).then(() => {
+            showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
+          }).catch(() => {
+            showMessage(`DNS registrert (lokalt) for #${valgtDeltager.startnummer}`);
+          });
         }
       } else if (e.key === 'Escape') {
         if (showManual) { setShowManual(false); setManualInput(''); }
@@ -331,7 +335,8 @@ const StartTimeRegister: React.FC = () => {
                   showMessage(`DNS fjernet for #${valgtDeltager.startnummer}`);
                 } else {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNS');
-                  editDeltager(valgtDeltager.navn, { starttid: '' });
+                  // Clear etappe starttid via deleteStartTime so the resultater entry is updated and persisted.
+                  deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
                   showMessage(`DNS registrert for #${valgtDeltager.startnummer}`);
                   setShowManual(false); setManualInput('');
                 }
@@ -351,7 +356,8 @@ const StartTimeRegister: React.FC = () => {
                   showMessage(`DNF fjernet for #${valgtDeltager.startnummer}`);
                 } else {
                   setEtappeStatus(valgtDeltager.startnummer, valgtEtappe, 'DNF');
-                  editDeltager(valgtDeltager.navn, { starttid: '' });
+                  // Clear etappe starttid via deleteStartTime so the resultater entry is updated and persisted.
+                  deleteStartTime(valgtDeltager.startnummer, valgtEtappe);
                   showMessage(`DNF registrert for #${valgtDeltager.startnummer}`);
                   setShowManual(false); setManualInput('');
                 }

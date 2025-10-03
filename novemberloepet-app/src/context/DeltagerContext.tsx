@@ -382,7 +382,10 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       const ETAPPER = Math.max(d.resultater?.length || 0, etappe);
       const results: EtappeResultat[] = Array.from({ length: ETAPPER }, (_, i) => d.resultater?.[i] || { etappe: i + 1, starttid: '', maltid: '', idealtid: '', diff: '' });
       const idx = etappe - 1;
-      results[idx] = { ...results[idx], maltid };
+      // The UI expects `sluttTid` for displaying a registered finish time.
+      // Ensure we write the same property locally so the dropdown and details show the updated value.
+      // Keep `maltid` untouched (legacy field) and set `sluttTid` instead.
+      (results[idx] as any) = { ...results[idx], sluttTid: maltid } as EtappeResultat;
       updatedResults = results;
       return { ...d, resultater: results };
     }));
@@ -394,7 +397,8 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       return true;
     } catch (e) {
       // Optionally enqueue for retry
-      enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, maltid }, attempts: 0 });
+      // Use `sluttTid` in the queued payload so retry attempts update the same field the UI reads.
+      enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, sluttTid: maltid }, attempts: 0 });
       return false;
     }
   }, [enqueueOp, updateDeltager]);
