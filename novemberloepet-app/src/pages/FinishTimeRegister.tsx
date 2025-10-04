@@ -9,7 +9,7 @@ import { usePersistentState } from '../hooks/usePersistentState';
 import { formatManualFinish } from '../lib/timeFormat';
 
 const FinishTimeRegister: React.FC = () => {
-  const { deltagere, editDeltager, setEtappeStatus, updateFinishTime, deleteFinishTime } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateFinishTime, deleteFinishTime, reloadDeltagere } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   // Veiviser steg og valgt etappe/deltager
@@ -249,10 +249,11 @@ const FinishTimeRegister: React.FC = () => {
           Bytt etappe
         </Button>
         <Autocomplete
-          options={deltagere.filter(d => !!d.startnummer)}
+          options={deltagere}
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
           value={valgtDeltager}
           onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); }}
+          onOpen={reloadDeltagere}
           renderOption={(props, option) => {
             const res = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1] : undefined;
             const status = res?.status;

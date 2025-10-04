@@ -10,7 +10,7 @@ import { formatManualFinish } from '../lib/timeFormat';
 
 const StartTimeRegister: React.FC = () => {
   // This component now handles start-tid (start time) semantics
-  const { deltagere, editDeltager, setEtappeStatus, updateStartTime, deleteStartTime } = useDeltagerContext();
+  const { deltagere, editDeltager, setEtappeStatus, updateStartTime, deleteStartTime, reloadDeltagere } = useDeltagerContext();
   const { etapper } = useEtappeContext();
 
   // Veiviser steg og valgt etappe/deltager
@@ -256,10 +256,11 @@ const StartTimeRegister: React.FC = () => {
           Bytt etappe
         </Button>
         <Autocomplete
-          options={deltagere.filter(d => !!d.startnummer)}
+          options={deltagere}
           getOptionLabel={d => `#${d.startnummer} ${d.navn}`}
           value={valgtDeltager}
           onChange={(_, ny) => { setValgtDeltager(ny); setTimeout(() => autoInputRef.current?.blur(), 0); }}
+          onOpen={reloadDeltagere}
           renderOption={(props, option) => {
             const res = valgtEtappe != null ? option.resultater?.[valgtEtappe - 1] : undefined;
             const status = res?.status;

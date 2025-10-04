@@ -119,9 +119,18 @@ app.get('/api/etapper', async (req, res) => {
 
 app.post('/api/etapper', async (req, res) => {
   try {
-    const { status, data } = await proxyRequest('post', '/classes/EtappeConfig', req.body);
-    if (status === 401 || status === 403) return res.status(401).json({ error: 'unauthorized' });
-    return res.status(status).json(data);
+    // Finn eksisterende EtappeConfig
+    const { status, data } = await proxyRequest('get', '/classes/EtappeConfig');
+    const existing = data.results && data.results.length > 0 ? data.results[0] : null;
+    if (existing) {
+      // Oppdater eksisterende rad
+      const update = await proxyRequest('put', `/classes/EtappeConfig/${existing.objectId}`, req.body);
+      return res.status(update.status).json(update.data);
+    } else {
+      // Opprett ny rad
+      const create = await proxyRequest('post', '/classes/EtappeConfig', req.body);
+      return res.status(create.status).json(create.data);
+    }
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message });
   }

@@ -3,12 +3,11 @@ import { Box, Button, IconButton, Paper, Stack, Table, TableBody, TableCell, Tab
 import React, { useEffect, useState } from 'react';
 
 import { useEtappeContext } from '../context/EtappeContext';
-import { usePersistentState } from '../hooks/usePersistentState';
 
 const Etapper: React.FC = () => {
   const { etapper, updateEtappenavn, updateIdealtid, handleSaveDefaultEtapper, reloadEtapper, loadingEtapper } = useEtappeContext();
   // local edit buffer for idealtid per etappenummer
-  const [localIdeal, setLocalIdeal] = usePersistentState<Record<number, string>>('etapper.localIdeal', {});
+  const [localIdeal, setLocalIdeal] = useState<Record<number, string>>({});
   const [saved, setSaved] = useState<Record<number, boolean>>({});
   const [savingDefaults, setSavingDefaults] = useState(false);
 

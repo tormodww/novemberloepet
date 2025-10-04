@@ -67,7 +67,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             const list = firstResult.etapper as Etappe[];
             setEtapper(list);
             setRemoteId(firstResult.objectId || firstResult.id || null);
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+            // Fjernet lagring til localStorage
             setLoadingEtapper(false);
             return true;
           }
@@ -83,7 +83,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const list = (json as any).etapper as Etappe[];
         setEtapper(list);
         setRemoteId(((json as any).objectId || (json as any).id) ?? null);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+        // Fjernet lagring til localStorage
         setLoadingEtapper(false);
         return true;
       }
@@ -91,7 +91,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // Check if response is directly an array
       if (Array.isArray(json)) {
         setEtapper(json as Etappe[]);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(json)); } catch {}
+        // Fjernet lagring til localStorage
         setLoadingEtapper(false);
         return true;
       }
@@ -144,7 +144,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (!ok) {
           setEtapper(defaultEtapper);
           setShowSaveDefaultPrompt(true);
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEtapper)); } catch {}
+          // Fjernet lagring til localStorage
         } else {
           setShowSaveDefaultPrompt(false);
         }
@@ -226,7 +226,7 @@ export const EtappeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const list = res && (Array.isArray((res as any).etapper) ? (res as any).etapper as Etappe[] : defaultEtapper);
       setEtapper(list);
       setRemoteId((res && ((res as any).objectId || (res as any).id)) ?? null);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+      // Fjernet lagring til localStorage
       setShowSaveDefaultPrompt(false);
       setEtapperError(null);
     } catch (e) {

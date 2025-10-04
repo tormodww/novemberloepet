@@ -49,23 +49,12 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       try {
         const remote = await fetchAllDeltagere();
         setDeltagere(remote);
-        // Optionally cache to localStorage for offline support
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+        // Fjernet caching til localStorage
       } catch (e) {
-        // If backend fails, show error or keep deltagere empty
         setDeltagere([]);
       }
     })();
   }, []);
-
-  // Optionally keep localStorage updated for offline cache, but never use as initial source
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(deltagere));
-    } catch (e) {
-      // ignore storage errors
-    }
-  }, [deltagere]);
 
   // pending ops queue (for offline / retry)
   const [pendingOps, setPendingOps] = useState<PendingOp[]>(() => {
@@ -405,7 +394,6 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
        return true;
      } catch (e) {
        // Optionally enqueue for retry
-       // Use `sluttTid` in the queued payload so retry attempts update the same field the UI reads.
       enqueueOp({ id: `${Date.now()}-finish`, type: 'update', startnummer, payload: { etappe, sluttTid }, attempts: 0 });
        return false;
      }
@@ -473,8 +461,18 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
     }
   };
 
+  // Hent deltagere fra API på forespørsel
+  const reloadDeltagere = useCallback(async () => {
+    try {
+      const remote = await fetchAllDeltagere();
+      setDeltagere(remote);
+    } catch (e) {
+      setDeltagere([]);
+    }
+  }, []);
+
   return (
-    <DeltagerContext.Provider value={({
+    <DeltagerContext.Provider value={{
       deltagere,
       addDeltager,
       updateResultater,
@@ -488,10 +486,8 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
       updateFinishTime,
       deleteStartTime,
       deleteFinishTime,
-      // queue API
       pendingOps,
       retryOp: (id: string) => {
-        // expose retryOp via provider wrapper
         setPendingOps(prev => {
           const next = prev.map(p => p.id === id ? { ...p, attempts: 0, lastError: null, nextAttemptAt: null } : p);
           persistOps(next);
@@ -500,7 +496,6 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
         setTimeout(() => { processQueue(); }, 200);
       },
       clearOp: (id: string) => removeOp(id),
-      // confirm selection and navigation helpers
       navigateTo,
       confirmSelectedStartnummer,
       setConfirmSelection: (v: string | string[] | null) => {
@@ -510,8 +505,9 @@ export const DeltagerProvider = ({ children, onNavigate }: { children: ReactNode
           setConfirmSelectedStartnummer(v);
         }
       },
-    } as DeltagerContextType)}>
-      {children}
-    </DeltagerContext.Provider>
+      reloadDeltagere // Eksponerer re-fetch funksjon
+    } as DeltagerContextType}>
+    {children}
+  </DeltagerContext.Provider>
   );
 };
