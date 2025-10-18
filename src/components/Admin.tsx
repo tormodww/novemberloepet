@@ -38,35 +38,39 @@ export default function Admin() {
         <button
           className="bg-gray-700 text-white py-4 rounded-md text-lg font-semibold w-full"
           onClick={() => {
-            // Demo: registrer start/sluttid for 10 deltakere på alle etapper
+            // Demo: registrer start/sluttid for alle deltakere på alle etapper
             const times: { [stage: string]: { [id: string]: { start?: string; end?: string } } } = {};
             const status: { [stage: string]: { [id: string]: 'DNS' | 'DNF' | undefined } } = {};
-            // Lag en liste med alle (deltaker, etappe)-kombinasjoner
-            const combos: Array<{ stage: string; id: string }> = [];
-            stages.forEach((stage: string) => {
-              for (let i = 1; i <= 10; i++) {
-                combos.push({ stage, id: String(i) });
-              }
-            });
-            // Bland listen
-            for (let i = combos.length - 1; i > 0; i--) {
+            const participantCount = 30;
+            // Finn 10% DNS og 5% DNF deltakere
+            const allIds = Array.from({length: participantCount}, (_, i) => String(i + 1));
+            // Bland deltakerlisten
+            const shuffled = [...allIds];
+            for (let i = shuffled.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
-              [combos[i], combos[j]] = [combos[j], combos[i]];
+              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            // Velg 2 DNS og 3 DNF
-            const dnsCombos = combos.slice(0, 2);
-            const dnfCombos = combos.slice(2, 5);
+            const dnsIds = shuffled.slice(0, Math.ceil(participantCount * 0.10));
+            const dnfIds = shuffled.slice(Math.ceil(participantCount * 0.10), Math.ceil(participantCount * 0.10) + Math.ceil(participantCount * 0.05));
+            // Velg én tilfeldig etappe for hver DNS/DNF deltaker
+            const dnsStages: { [id: string]: string } = {};
+            dnsIds.forEach(id => {
+              dnsStages[id] = stages[Math.floor(Math.random() * stages.length)];
+            });
+            const dnfStages: { [id: string]: string } = {};
+            dnfIds.forEach(id => {
+              dnfStages[id] = stages[Math.floor(Math.random() * stages.length)];
+            });
+            // Registrer tider/status
             stages.forEach((stage: string) => {
               times[stage] = {};
               status[stage] = {};
-              for (let i = 1; i <= 10; i++) {
+              for (let i = 1; i <= participantCount; i++) {
                 const id = String(i);
-                const isDNS = dnsCombos.some(c => c.stage === stage && c.id === id);
-                const isDNF = dnfCombos.some(c => c.stage === stage && c.id === id);
-                if (isDNS) {
+                if (dnsIds.includes(id) && dnsStages[id] === stage) {
                   times[stage][id] = { start: '', end: '' };
                   status[stage][id] = 'DNS';
-                } else if (isDNF) {
+                } else if (dnfIds.includes(id) && dnfStages[id] === stage) {
                   times[stage][id] = { start: '', end: '' };
                   status[stage][id] = 'DNF';
                 } else {
@@ -84,10 +88,10 @@ export default function Admin() {
             });
             localStorage.setItem('participantTimes', JSON.stringify(times));
             localStorage.setItem('participantStatus', JSON.stringify(status));
-            alert('Demo-tider registrert for 10 deltakere på alle etapper! 2 DNS og 3 DNF er lagt inn tilfeldig. Gå til Resultater for å se.');
+            alert('Demo-tider registrert for alle deltakere på alle etapper! 10% får DNS og 5% får DNF på én tilfeldig etappe. Gå til Resultater for å se.');
           }}
         >
-          Demo: Registrer tider for 10 deltakere på alle etapper
+          Demo: Registrer demo tider for alle deltakere på alle etapper
         </button>
       </div>
     </div>

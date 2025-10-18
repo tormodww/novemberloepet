@@ -1,5 +1,5 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { participants } from '../data/participants'
 
 export default function TimeRegistration() {
@@ -11,10 +11,30 @@ export default function TimeRegistration() {
   const [confirmed, setConfirmed] = useState(false)
   const [manualTime, setManualTime] = useState('')
   const [registeredTime, setRegisteredTime] = useState('')
-  // Lagre registrert tid per deltaker
-  const [participantTimes, setParticipantTimes] = useState<{ [id: string]: string }>({})
-  // Lagre DNS/DNF-status per deltaker
-  const [participantStatus, setParticipantStatus] = useState<{ [id: string]: 'DNS' | 'DNF' | undefined }>({})
+  // State for tid/status per deltaker for valgt etappe
+  const [participantTimes, setParticipantTimes] = useState<{ [id: string]: string }>({});
+  const [participantStatus, setParticipantStatus] = useState<{ [id: string]: 'DNS' | 'DNF' | undefined }>({});
+
+  // Oppdater tid/status hver gang etappe eller type endres
+  useEffect(() => {
+    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
+    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const timesObj: { [id: string]: string } = {};
+    if (timesLS[stage]) {
+      Object.entries(timesLS[stage]).forEach(([id, t]: [string, any]) => {
+        if (type === 'start' && t.start) timesObj[id] = t.start;
+        if (type === 'end' && t.end) timesObj[id] = t.end;
+      });
+    }
+    setParticipantTimes(timesObj);
+    const statusObj: { [id: string]: 'DNS' | 'DNF' | undefined } = {};
+    if (statusLS[stage]) {
+      Object.entries(statusLS[stage]).forEach(([id, s]: [string, any]) => {
+        if (s === 'DNS' || s === 'DNF') statusObj[id] = s;
+      });
+    }
+    setParticipantStatus(statusObj);
+  }, [stage, type]);
 
   // Dialog state
   const [showDialog, setShowDialog] = useState<null | { action: 'TIME' | 'DNS' | 'DNF', newValue?: string }>(null);
