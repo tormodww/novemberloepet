@@ -35,8 +35,16 @@ export default function TimeRegistration() {
     }
     setRegisteredTime(timestamp)
     setConfirmed(true)
-    setParticipantTimes(prev => ({ ...prev, [participant]: timestamp }))
-    setParticipantStatus(prev => ({ ...prev, [participant]: undefined }));
+    setParticipantTimes(prev => {
+      const updated = { ...prev, [participant]: timestamp };
+      localStorage.setItem('participantTimes', JSON.stringify(updated));
+      return updated;
+    });
+    setParticipantStatus(prev => {
+      const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: undefined };
+      localStorage.setItem('participantStatus', JSON.stringify(updated));
+      return updated;
+    });
     console.log({ stage, participant, type, timestamp })
   }
 
@@ -110,12 +118,20 @@ export default function TimeRegistration() {
               if (current) {
                 setShowDialog({ action: 'DNS' });
                 setPendingAction(() => () => {
-                  setParticipantStatus(prev => ({ ...prev, [participant]: 'DNS' }));
+                  setParticipantStatus(prev => {
+                    const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNS' };
+                    localStorage.setItem('participantStatus', JSON.stringify(updated));
+                    return updated;
+                  });
                   setConfirmed(true);
                   setRegisteredTime('DNS');
                 });
               } else {
-                setParticipantStatus(prev => ({ ...prev, [participant]: 'DNS' }));
+                setParticipantStatus(prev => {
+                  const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNS' };
+                  localStorage.setItem('participantStatus', JSON.stringify(updated));
+                  return updated;
+                });
                 setConfirmed(true);
                 setRegisteredTime('DNS');
               }
@@ -132,12 +148,20 @@ export default function TimeRegistration() {
               if (current) {
                 setShowDialog({ action: 'DNF' });
                 setPendingAction(() => () => {
-                  setParticipantStatus(prev => ({ ...prev, [participant]: 'DNF' }));
+                  setParticipantStatus(prev => {
+                    const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNF' };
+                    localStorage.setItem('participantStatus', JSON.stringify(updated));
+                    return updated;
+                  });
                   setConfirmed(true);
                   setRegisteredTime('DNF');
                 });
               } else {
-                setParticipantStatus(prev => ({ ...prev, [participant]: 'DNF' }));
+                setParticipantStatus(prev => {
+                  const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNF' };
+                  localStorage.setItem('participantStatus', JSON.stringify(updated));
+                  return updated;
+                });
                 setConfirmed(true);
                 setRegisteredTime('DNF');
               }
