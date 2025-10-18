@@ -6,6 +6,7 @@ import TimeRegistration from './components/TimeRegistration'
 import Admin from './components/Admin'
 import AdminParticipants from './components/AdminParticipants'
 
+import AdminStages from './components/AdminStages'
 import AdminResults from './components/AdminResults'
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
           {/* Placeholder-komponenter for undersider */}
           <Route path="/admin/participants" element={<AdminParticipants />} />
           <Route path="/admin/results" element={<AdminResults />} />
+          <Route path="/admin/stages" element={<AdminStages />} />
         </Routes>
       </div>
     </div>
