@@ -1,8 +1,12 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+// @ts-ignore
 import { participants } from '../data/participants';
+const participantList: {id: string; name: string}[] = Array.isArray(participants) ? participants : [];
+// @ts-ignore
 import { stages } from '../data/stages';
+const stageList: string[] = Array.isArray(stages) ? stages : [];
 
 // Hent resultater fra localStorage (samme nøkkel som TimeRegistration bruker for state)
 function getResults() {
@@ -16,7 +20,7 @@ function getResults() {
 }
 
 export default function AdminResults() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [results, setResults] = useState(getResults());
   const [selectedStage, setSelectedStage] = useState<string | 'ALL'>('ALL');
 
@@ -121,12 +125,12 @@ export default function AdminResults() {
               );
             })}
       </ul>
-      <button
+      <a
         className="block mt-6 text-blue-600 underline w-full sm:w-auto text-base sm:text-lg"
-        onClick={() => navigate('/admin')}
+        href="admin.html"
       >
         Tilbake til admin
-      </button>
+      </a>
     </div>
   );
 }

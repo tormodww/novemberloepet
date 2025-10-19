@@ -1,0 +1,1 @@
+export const participants: { id: string; name: string }[];

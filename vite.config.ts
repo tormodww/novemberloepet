@@ -6,6 +6,12 @@ export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? '/novemberlopet/' : './',
   build: {
     rollupOptions: {
+      input: {
+        main: 'index.html',
+        start: 'start.html',
+        slutt: 'slutt.html',
+        admin: 'admin.html'
+      },
       output: {
         entryFileNames: `assets/[name]-[hash].js`,
         chunkFileNames: `assets/[name]-[hash].js`,

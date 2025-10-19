@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
+// @ts-ignore
 import { participants } from '../data/participants';
+const participantList: {id: string; name: string}[] = Array.isArray(participants) ? participants : [];
 
 export default function AdminParticipants() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   return (
     <div className="w-full max-w-md mx-auto text-center px-2 py-8">
       <h1 className="text-2xl font-bold mb-8">Deltagere</h1>
@@ -14,12 +16,12 @@ export default function AdminParticipants() {
           </li>
         ))}
       </ul>
-      <button
+      <a
         className="block mt-6 text-blue-600 underline w-full sm:w-auto text-base sm:text-lg"
-        onClick={() => navigate('/admin')}
+        href="admin.html"
       >
         Tilbake til admin
-      </button>
+      </a>
     </div>
   );
 }

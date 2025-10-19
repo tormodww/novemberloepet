@@ -1,5 +1,7 @@
 import { useState } from 'react';
+// @ts-ignore
 import { stages as initialStages } from '../data/stages';
+const stageList: string[] = Array.isArray(initialStages) ? initialStages : [];
 
 export default function AdminStages() {
   // Last fra localStorage hvis finnes, ellers fra customStages, ellers fra data/stages
@@ -97,7 +99,7 @@ export default function AdminStages() {
           window.location.reload();
         }}
       >Tilbakestill til standard etapper</button>
-      <a href="/admin" className="block mt-4 text-blue-600 underline">Tilbake til admin</a>
+  <a href="admin.html" className="block mt-4 text-blue-600 underline">Tilbake til admin</a>
     </div>
   );
 }
