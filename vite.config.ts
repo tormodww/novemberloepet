@@ -3,14 +3,13 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  base: '/novemberloepet/', // viktig for GitHub Pages
   build: {
-    rollupOptions: {
-      output: {
-        entryFileNames: `assets/[name]-[hash].js`,
-        chunkFileNames: `assets/[name]-[hash].js`,
-        assetFileNames: `assets/[name]-[hash][extname]`
-      }
+    outDir: 'dist',
+  },
+  server: {
+    fs: {
+      strict: false,
     }
   }
 })
