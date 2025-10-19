@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const base = process.env.VITE_BASE || '/novemberloepet/';
+
 export default defineConfig({
   plugins: [react()],
-  base: '/novemberloepet/', // viktig for GitHub Pages
+  base,
   build: {
     outDir: 'dist',
   },
