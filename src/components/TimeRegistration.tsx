@@ -37,7 +37,7 @@ export default function TimeRegistration() {
   }, [stage, type]);
 
   // Dialog state
-  const [showDialog, setShowDialog] = useState<null | { action: 'TIME' | 'DNS' | 'DNF', newValue?: string }>(null);
+  const [showDialog, setShowDialog] = useState<null | { action: 'TIME' | 'DNS' | 'DNF' , newValue?: string }>(null);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const getCurrentStatus = () => {
@@ -88,23 +88,30 @@ export default function TimeRegistration() {
           <option value="" className="text-lg sm:text-xl">Startnummer eller navn</option>
           {participants.map((p: { id: string; name: string }) => {
             let status = '';
+            let optionClass = 'text-lg sm:text-xl';
             if (participantStatus[p.id]) {
               status = ` (${participantStatus[p.id]})`;
+              if (participantStatus[p.id] === 'DNS') optionClass += ' text-red-600 font-bold';
             } else if (participantTimes[p.id]) {
               status = ` (${type === 'start' ? 'starttid' : 'sluttid'}: ${participantTimes[p.id]})`;
             }
             return (
-              <option key={p.id} value={p.id} className="text-lg sm:text-xl">
+              <option key={p.id} value={p.id} className={optionClass}>
                 {p.name}{status}
               </option>
             );
           })}
         </select>
       </div>
+      {/* Vis deltaker-info kun hvis deltaker er valgt */}
+      {participant && (
+        <p className={`mb-4 text-base sm:text-lg ${participantStatus[participant] === 'DNS' ? 'text-red-600 font-bold' : ''}`}>
+          Deltaker #{participant} {participantStatus[participant] === 'DNS' ? '(DNS)' : ''}
+        </p>
+      )}
   <h2 className="text-xl sm:text-2xl font-semibold mb-4">
         {type === 'start' ? 'Registrer Starttid' : 'Registrer Sluttid'}
       </h2>
-  <p className="mb-4 text-base sm:text-lg">Deltaker #{participant}</p>
       <>
         <div className="mb-4">
           <label htmlFor="manual-time" className="block mb-1">Manuell tid (hh:mm):</label>

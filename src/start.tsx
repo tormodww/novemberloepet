@@ -10,15 +10,20 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
   const selectedObj = participants.find((p: any) => p.id === selected);
   let selectedSuffix = '';
   let selectedClass = 'px-4 py-2 rounded cursor-pointer border-2 border-blue-500 bg-white';
+  let selectedStyle = {};
   if (selectedObj) {
     if (statusForStage[selectedObj.id] === 'DNS') {
       selectedSuffix = ' (DNS)';
-      selectedClass += ' bg-red-600 text-white font-bold';
+      selectedClass = 'px-4 py-2 rounded cursor-pointer border-2 border-red-600 font-bold';
+      selectedStyle = { backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold' };
     } else if (statusForStage[selectedObj.id] === 'DNF') {
       selectedSuffix = ' (DNF)';
-      selectedClass += ' bg-red-600 text-white font-bold';
+      selectedClass = 'px-4 py-2 rounded cursor-pointer border-2 border-red-600 font-bold';
+      selectedStyle = { backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold' };
     } else if (timesForStage[selectedObj.id]?.start) {
       selectedSuffix = ` ${timesForStage[selectedObj.id].start}`;
+    } else {
+      selectedSuffix = '';
     }
   }
   return (
@@ -31,7 +36,7 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
           onClick={() => setOpen(o => !o)}
           role="button"
           tabIndex={0}
-          style={{ outline: 'none' }}
+          style={{ outline: 'none', ...selectedStyle }}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setOpen(o => !o); }}
         >
           {selectedObj ? `#${selectedObj.id} - ${selectedObj.name}${selectedSuffix}` : 'Startnummer eller navn'}
@@ -52,6 +57,8 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
                 rowClass += ' bg-red-600 text-white font-bold';
               } else if (timesForStage[p.id]?.start) {
                 suffix = ` ${timesForStage[p.id].start}`;
+              } else {
+                suffix = '';
               }
               if (selected === p.id) rowClass += ' ring-2 ring-blue-600';
               return (
