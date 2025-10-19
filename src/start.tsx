@@ -9,7 +9,7 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
   // Alltid vis ALLE deltakere fra participants-array
   const selectedObj = participants.find((p: any) => p.id === selected);
   let selectedSuffix = '';
-  let selectedClass = 'px-4 py-2 rounded cursor-pointer border';
+  let selectedClass = 'px-4 py-2 rounded cursor-pointer border-2 border-blue-500 bg-white';
   if (selectedObj) {
     if (statusForStage[selectedObj.id] === 'DNS') {
       selectedSuffix = ' (DNS)';
@@ -37,10 +37,13 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
           {selectedObj ? `#${selectedObj.id} - ${selectedObj.name}${selectedSuffix}` : 'Startnummer eller navn'}
         </div>
         {open && (
-          <div className="absolute z-50 w-full border rounded-md bg-white shadow-lg mt-2 max-h-96 overflow-y-auto">
-            {participants.map((p: any) => {
+          <div className="absolute z-50 w-full border-2 border-blue-500 rounded-md bg-blue-50 shadow-2xl mt-2 max-h-96 overflow-y-auto">
+            {/* ...existing code... */}
+            {participants.map((p: any, idx: number) => {
               let suffix = '';
-              let rowClass = 'cursor-pointer px-4 py-2';
+              let rowClass = 'cursor-pointer px-4 py-2 hover:bg-blue-100 transition';
+              // Stripe-effekt
+              rowClass += idx % 2 === 0 ? ' bg-blue-50' : ' bg-blue-100';
               if (statusForStage[p.id] === 'DNS') {
                 suffix = ' (DNS)';
                 rowClass += ' bg-red-600 text-white font-bold';
