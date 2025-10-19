@@ -1,3 +1,76 @@
+// Custom dropdown for deltakere med full styling
+function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; selected: string; onSelect: (id: string) => void }) {
+  // Ingen filtering eller tidlig return
+  const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
+  const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+  const timesForStage = timesLS[stage] || {};
+  const statusForStage = statusLS[stage] || {};
+  const [open, setOpen] = React.useState(false);
+  // Alltid vis ALLE deltakere fra participants-array
+  const selectedObj = participants.find((p: any) => p.id === selected);
+  let selectedSuffix = '';
+  let selectedClass = 'px-4 py-2 rounded cursor-pointer border';
+  if (selectedObj) {
+    if (statusForStage[selectedObj.id] === 'DNS') {
+      selectedSuffix = ' (DNS)';
+      selectedClass += ' bg-red-600 text-white font-bold';
+    } else if (statusForStage[selectedObj.id] === 'DNF') {
+      selectedSuffix = ' (DNF)';
+      selectedClass += ' bg-red-600 text-white font-bold';
+    } else if (timesForStage[selectedObj.id]?.start) {
+      selectedSuffix = ` ${timesForStage[selectedObj.id].start}`;
+    }
+  }
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Etappe: {stage}</h2>
+      <p className="mb-2">Velg deltaker</p>
+      <div className="relative">
+        <div
+          className={selectedClass + ' w-full'}
+          onClick={() => setOpen(o => !o)}
+          role="button"
+          tabIndex={0}
+          style={{ outline: 'none' }}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setOpen(o => !o); }}
+        >
+          {selectedObj ? `#${selectedObj.id} - ${selectedObj.name}${selectedSuffix}` : 'Startnummer eller navn'}
+        </div>
+        {open && (
+          <div className="absolute z-50 w-full border rounded-md bg-white shadow-lg mt-2 max-h-96 overflow-y-auto">
+            {participants.map((p: any) => {
+              let suffix = '';
+              let rowClass = 'cursor-pointer px-4 py-2';
+              if (statusForStage[p.id] === 'DNS') {
+                suffix = ' (DNS)';
+                rowClass += ' bg-red-600 text-white font-bold';
+              } else if (statusForStage[p.id] === 'DNF') {
+                suffix = ' (DNF)';
+                rowClass += ' bg-red-600 text-white font-bold';
+              } else if (timesForStage[p.id]?.start) {
+                suffix = ` ${timesForStage[p.id].start}`;
+              }
+              if (selected === p.id) rowClass += ' ring-2 ring-blue-600';
+              return (
+                <div
+                  key={p.id}
+                  className={rowClass}
+                  onClick={() => { onSelect(p.id); setOpen(false); }}
+                  role="button"
+                  tabIndex={0}
+                  style={{ outline: 'none' }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { onSelect(p.id); setOpen(false); } }}
+                >
+                  #{p.id} - {p.name}{suffix}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 import * as React from 'react';
 import * as ReactDOM from 'react-dom/client';
@@ -27,7 +100,7 @@ function StartApp() {
           </div>
         ) : !participant ? (
           <div className="w-full max-w-md mx-auto">
-            <ParticipantSelectorStatic stage={stage} onSelect={setParticipant} />
+            <ParticipantDropdown stage={stage} selected={participant} onSelect={setParticipant} />
           </div>
         ) : (
           <div className="w-full max-w-md mx-auto">
@@ -90,10 +163,10 @@ function ParticipantSelectorStatic({ stage, onSelect }: { stage: string; onSelec
           let style = {};
           if (dropdownData[p.id] === 'DNS') {
             suffix = ' (DNS)';
-            style = { color: 'red', fontWeight: 'bold' };
+            style = { color: 'white', backgroundColor: '#dc2626', fontWeight: 'bold' };
           } else if (dropdownData[p.id] === 'DNF') {
             suffix = ' (DNF)';
-            style = { color: 'red', fontWeight: 'bold' };
+            style = { color: 'white', backgroundColor: '#dc2626', fontWeight: 'bold' };
           } else if (dropdownData[p.id]) {
             suffix = ` ${dropdownData[p.id]}`;
           }
@@ -219,35 +292,9 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
 
   return (
     <div className="text-center">
-      <h2 className="text-xl sm:text-2xl font-semibold mb-4">Registrer Starttid</h2>
       <div className="mb-4">
-        <label htmlFor="participant-select" className="block mb-1 font-semibold">Velg deltaker:</label>
-        <select
-          id="participant-select"
-          value={selectedParticipant}
-          onChange={e => setSelectedParticipant(e.target.value)}
-          className="w-full block border rounded-md px-3 py-4 mb-2 text-lg sm:text-xl"
-        >
-          <option value="" className="text-lg sm:text-xl">Startnummer eller navn</option>
-          {participants.map((p: any) => {
-            let suffix = '';
-            let style = {};
-            if (dropdownData[p.id] === 'DNS') {
-              suffix = ' (DNS)';
-              style = { color: 'red', fontWeight: 'bold' };
-            } else if (dropdownData[p.id] === 'DNF') {
-              suffix = ' (DNF)';
-              style = { color: 'red', fontWeight: 'bold' };
-            } else if (dropdownData[p.id]) {
-              suffix = ` ${dropdownData[p.id]}`;
-            }
-            return (
-              <option key={p.id} value={p.id} style={style} className="text-lg sm:text-xl">
-                #{p.id} - {p.name}{suffix}
-              </option>
-            );
-          })}
-        </select>
+        <label className="block mb-1 font-semibold">Velg deltaker:</label>
+        <ParticipantDropdown stage={stage} selected={selectedParticipant} onSelect={setSelectedParticipant} />
       </div>
       <p className="mb-4 text-base sm:text-lg">Deltaker #{selectedParticipant} på etappe {stage}</p>
       <div className="mb-4">
