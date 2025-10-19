@@ -19,19 +19,19 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       <nav className="bg-gray-100 border-b px-4 py-2 flex gap-4 items-center justify-center">
         <a
-          href="/stage?type=start"
+          href="#/stage?type=start"
           className={
             `font-semibold hover:underline px-3 py-1 rounded ${isStart ? 'bg-blue-600 text-white' : 'text-blue-700'}`
           }
         >Registrer start</a>
         <a
-          href="/stage?type=end"
+          href="#/stage?type=end"
           className={
             `font-semibold hover:underline px-3 py-1 rounded ${isStop ? 'bg-purple-700 text-white' : 'text-purple-700'}`
           }
         >Registrer slutt</a>
         <a
-          href="/admin"
+          href="#/admin"
           className={
             `font-semibold hover:underline px-3 py-1 rounded ${isAdmin ? 'bg-gray-800 text-white' : 'text-gray-800'}`
           }
