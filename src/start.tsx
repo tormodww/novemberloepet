@@ -23,7 +23,7 @@ function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; sel
   }
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-4">Etappe: {stage}</h2>
+  <h2 className="text-xl font-bold text-blue-700 bg-blue-100 rounded px-4 py-2 mb-4">Etappe: {stage}</h2>
       <p className="mb-2">Velg deltaker</p>
       <div className="relative">
         <div
