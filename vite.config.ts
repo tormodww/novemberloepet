@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: mode === 'production' ? '/novemberlopet/' : './',
+  base: mode === 'production' ? '/novemberloepet/' : './',
   build: {
     rollupOptions: {
       input: {
