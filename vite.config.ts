@@ -10,7 +10,10 @@ export default defineConfig(({ mode }) => ({
         main: 'index.html',
         start: 'start.html',
         slutt: 'slutt.html',
-        admin: 'admin.html'
+        admin: 'admin.html',
+        resultater: 'resultater.html',
+        etapper: 'etapper.html',
+        deltakere: 'deltakere.html'
       },
       output: {
         entryFileNames: `assets/[name]-[hash].js`,

@@ -293,7 +293,6 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
   return (
     <div className="text-center">
       <div className="mb-4">
-        <label className="block mb-1 font-semibold">Velg deltaker:</label>
         <ParticipantDropdown stage={stage} selected={selectedParticipant} onSelect={setSelectedParticipant} />
       </div>
       <p className="mb-4 text-base sm:text-lg">Deltaker #{selectedParticipant} på etappe {stage}</p>
