@@ -41,6 +41,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/stage" element={<StageSelector />} />
+          <Route path="/stage/start" element={<StageSelector type="start" />} />
+          <Route path="/stage/slutt" element={<StageSelector type="slutt" />} />
           <Route path="/participant" element={<ParticipantSelector />} />
           <Route path="/time" element={<TimeRegistration />} />
           <Route path="/admin" element={<Admin />} />
