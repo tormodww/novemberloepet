@@ -1,8 +1,8 @@
 // Custom dropdown for deltakere med full styling
 function ParticipantDropdown({ stage, selected, onSelect }: { stage: string; selected: string; onSelect: (id: string) => void }) {
   // Ingen filtering eller tidlig return
-  const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-  const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+  const timesLS = getParticipantTimes();
+  const statusLS = getParticipantStatus();
   const timesForStage = timesLS[stage] || {};
   const statusForStage = statusLS[stage] || {};
   const [open, setOpen] = React.useState(false);
@@ -87,6 +87,7 @@ import * as ReactDOM from 'react-dom/client';
 import './index.css';
 import { stages } from './data/stages';
 import { participants } from './data/participants';
+import { getParticipantTimes, setParticipantTimes, getParticipantStatus, setParticipantStatus } from './api/storageApi';
 
 import Toolbar from './components/Toolbar';
 
@@ -146,8 +147,8 @@ function ParticipantSelectorStatic({ stage, onSelect }: { stage: string; onSelec
   // Hent registrert starttid/status fra localStorage for valgt etappe hver gang listen rendres
   const [dropdownData, setDropdownData] = React.useState<{[id: string]: string}>({});
   React.useEffect(() => {
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const timesLS = getParticipantTimes();
+    const statusLS = getParticipantStatus();
     const timesForStage = timesLS[stage] || {};
     const statusForStage = statusLS[stage] || {};
     const data: {[id: string]: string} = {};
@@ -202,8 +203,8 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
   const [dropdownData, setDropdownData] = React.useState<{[id: string]: string}>({});
   // Oppdater dropdown-data for deltakerlisten
   const updateDropdownData = React.useCallback(() => {
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const timesLS = getParticipantTimes();
+    const statusLS = getParticipantStatus();
     const timesForStage = timesLS[stage] || {};
     const statusForStage = statusLS[stage] || {};
     const data: {[id: string]: string} = {};
@@ -218,8 +219,8 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
 
   // Nullstill status og registrert tid når deltaker eller etappe endres
   React.useEffect(() => {
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const timesLS = getParticipantTimes();
+    const statusLS = getParticipantStatus();
     const timesForStage = timesLS[stage] || {};
     const statusForStage = statusLS[stage] || {};
     setRegisteredTime(timesForStage[selectedParticipant]?.start || '');
@@ -239,20 +240,20 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
     setRegisteredTime(timestamp);
     setConfirmed(true);
     setStatus(undefined);
-    // Lagre til localStorage
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
+    // Lagre til storageApi
+    const timesLS = getParticipantTimes();
     if (!timesLS[stage]) timesLS[stage] = {};
     if (!timesLS[stage][selectedParticipant]) timesLS[stage][selectedParticipant] = {};
     timesLS[stage][selectedParticipant].start = timestamp;
-    localStorage.setItem('participantTimes', JSON.stringify(timesLS));
+    setParticipantTimes(timesLS);
     // Fjern DNS/DNF status helt hvis den finnes
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const statusLS = getParticipantStatus();
     if (statusLS[stage] && statusLS[stage][selectedParticipant]) {
       delete statusLS[stage][selectedParticipant];
       if (Object.keys(statusLS[stage]).length === 0) {
         delete statusLS[stage];
       }
-      localStorage.setItem('participantStatus', JSON.stringify(statusLS));
+      setParticipantStatus(statusLS);
     }
     updateDropdownData();
   };
@@ -261,20 +262,20 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
     setStatus('DNS');
     setRegisteredTime('DNS');
     setConfirmed(true);
-    // Lagre DNS til localStorage
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    // Lagre DNS til storageApi
+    const statusLS = getParticipantStatus();
     if (!statusLS[stage]) statusLS[stage] = {};
     statusLS[stage][selectedParticipant] = 'DNS';
-    localStorage.setItem('participantStatus', JSON.stringify(statusLS));
-    // Fjern tid helt fra localStorage
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
+    setParticipantStatus(statusLS);
+    // Fjern tid helt fra storageApi
+    const timesLS = getParticipantTimes();
     if (timesLS[stage] && timesLS[stage][selectedParticipant]) {
       delete timesLS[stage][selectedParticipant].start;
       // Slett hele deltaker-objektet hvis tomt
       if (Object.keys(timesLS[stage][selectedParticipant]).length === 0) {
         delete timesLS[stage][selectedParticipant];
       }
-      localStorage.setItem('participantTimes', JSON.stringify(timesLS));
+      setParticipantTimes(timesLS);
     }
     updateDropdownData();
   };
@@ -283,19 +284,19 @@ function TimeRegistrationStatic({ stage, participant, type }: { stage: string; p
     setStatus('DNF');
     setRegisteredTime('DNF');
     setConfirmed(true);
-    // Lagre DNF til localStorage
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    // Lagre DNF til storageApi
+    const statusLS = getParticipantStatus();
     if (!statusLS[stage]) statusLS[stage] = {};
     statusLS[stage][selectedParticipant] = 'DNF';
-    localStorage.setItem('participantStatus', JSON.stringify(statusLS));
-    // Fjern tid helt fra localStorage
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
+    setParticipantStatus(statusLS);
+    // Fjern tid helt fra storageApi
+    const timesLS = getParticipantTimes();
     if (timesLS[stage] && timesLS[stage][selectedParticipant]) {
       delete timesLS[stage][selectedParticipant].start;
       if (Object.keys(timesLS[stage][selectedParticipant]).length === 0) {
         delete timesLS[stage][selectedParticipant];
       }
-      localStorage.setItem('participantTimes', JSON.stringify(timesLS));
+      setParticipantTimes(timesLS);
     }
     updateDropdownData();
   };

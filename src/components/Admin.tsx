@@ -5,6 +5,7 @@ import { stages } from '../data/stages';
 const stageList: string[] = Array.isArray(stages) ? stages : [];
 
 import Toolbar from './Toolbar';
+import { setParticipantTimes, setParticipantStatus } from '../api/storageApi';
 
 export default function Admin() {
   const [selectedStage, setSelectedStage] = useState(stageList[0]);
@@ -96,8 +97,8 @@ export default function Admin() {
                   }
                 }
               });
-              localStorage.setItem('participantTimes', JSON.stringify(times));
-              localStorage.setItem('participantStatus', JSON.stringify(status));
+              setParticipantTimes(times);
+              setParticipantStatus(status);
               alert('Demo-tider registrert for alle deltakere på alle etapper! 10% får DNS og 5% får DNF på én tilfeldig etappe. Gå til Resultater for å se.');
             }}
           >
@@ -164,8 +165,8 @@ export default function Admin() {
                     }
                   });
                 });
-                localStorage.setItem('participantTimes', JSON.stringify(times));
-                localStorage.setItem('participantStatus', JSON.stringify(status));
+                setParticipantTimes(times);
+                setParticipantStatus(status);
                 alert(`Demo-tider registrert for ${demoCount} deltakere! 10% får DNS og 5% får DNF på én tilfeldig etappe. Gå til Resultater for å se.`);
               }}
             >

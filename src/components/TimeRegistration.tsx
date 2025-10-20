@@ -1,6 +1,7 @@
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { participants } from '../data/participants'
+import { getParticipantTimes as getTimesStorage, setParticipantTimes as setTimesStorage, getParticipantStatus as getStatusStorage, setParticipantStatus as setStatusStorage } from '../api/storageApi';
 
 export default function TimeRegistration() {
   const [params] = useSearchParams()
@@ -17,8 +18,8 @@ export default function TimeRegistration() {
 
   // Oppdater tid/status hver gang etappe eller type endres
   useEffect(() => {
-    const timesLS = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-    const statusLS = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+  const timesLS = getTimesStorage();
+  const statusLS = getStatusStorage();
     const timesObj: { [id: string]: string } = {};
     if (timesLS[stage]) {
       Object.entries(timesLS[stage]).forEach(([id, t]: [string, any]) => {
@@ -57,12 +58,23 @@ export default function TimeRegistration() {
     setConfirmed(true)
     setParticipantTimes(prev => {
       const updated = { ...prev, [participant]: timestamp };
-      localStorage.setItem('participantTimes', JSON.stringify(updated));
+      // update local state
       return updated;
     });
+  // persist using storage API for participantTimes and participantStatus
+  const timesLS = getTimesStorage();
+    if (!timesLS[stage]) timesLS[stage] = {};
+    if (!timesLS[stage][participant]) timesLS[stage][participant] = {};
+    if (type === 'start') timesLS[stage][participant].start = timestamp;
+    else timesLS[stage][participant].end = timestamp;
+    setTimesStorage(timesLS);
     setParticipantStatus(prev => {
       const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: undefined };
-      localStorage.setItem('participantStatus', JSON.stringify(updated));
+      // persist
+      const statusLS = getStatusStorage();
+      if (!statusLS[stage]) statusLS[stage] = {};
+      statusLS[stage][participant] = undefined;
+      setStatusStorage(statusLS);
       return updated;
     });
     console.log({ stage, participant, type, timestamp })
@@ -147,7 +159,11 @@ export default function TimeRegistration() {
                 setPendingAction(() => () => {
                   setParticipantStatus(prev => {
                     const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNS' };
-                    localStorage.setItem('participantStatus', JSON.stringify(updated));
+                    // persist to storage per-stage
+                    const statusLS = getStatusStorage();
+                    if (!statusLS[stage]) statusLS[stage] = {};
+                    statusLS[stage][participant] = 'DNS';
+                    setStatusStorage(statusLS);
                     return updated;
                   });
                   setConfirmed(true);
@@ -156,7 +172,10 @@ export default function TimeRegistration() {
               } else {
                 setParticipantStatus(prev => {
                   const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNS' };
-                  localStorage.setItem('participantStatus', JSON.stringify(updated));
+                  const statusLS = getStatusStorage();
+                  if (!statusLS[stage]) statusLS[stage] = {};
+                  statusLS[stage][participant] = 'DNS';
+                  setStatusStorage(statusLS);
                   return updated;
                 });
                 setConfirmed(true);
@@ -177,7 +196,10 @@ export default function TimeRegistration() {
                 setPendingAction(() => () => {
                   setParticipantStatus(prev => {
                     const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNF' };
-                    localStorage.setItem('participantStatus', JSON.stringify(updated));
+                    const statusLS = getStatusStorage();
+                    if (!statusLS[stage]) statusLS[stage] = {};
+                    statusLS[stage][participant] = 'DNF';
+                    setStatusStorage(statusLS);
                     return updated;
                   });
                   setConfirmed(true);
@@ -186,7 +208,10 @@ export default function TimeRegistration() {
               } else {
                 setParticipantStatus(prev => {
                   const updated: { [id: string]: 'DNS' | 'DNF' | undefined } = { ...prev, [participant]: 'DNF' };
-                  localStorage.setItem('participantStatus', JSON.stringify(updated));
+                  const statusLS = getStatusStorage();
+                  if (!statusLS[stage]) statusLS[stage] = {};
+                  statusLS[stage][participant] = 'DNF';
+                  setStatusStorage(statusLS);
                   return updated;
                 });
                 setConfirmed(true);

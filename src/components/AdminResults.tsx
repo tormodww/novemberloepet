@@ -8,11 +8,13 @@ const participantList: {id: string; name: string}[] = Array.isArray(participants
 import { stages } from '../data/stages';
 const stageList: string[] = Array.isArray(stages) ? stages : [];
 
-// Hent resultater fra localStorage (samme nøkkel som TimeRegistration bruker for state)
+import { getParticipantTimes, getParticipantStatus } from '../api/storageApi';
+
+// Hent resultater fra storage API (samme nøkkel som TimeRegistration bruker for state)
 function getResults() {
   try {
-    const times = JSON.parse(localStorage.getItem('participantTimes') || '{}');
-    const status = JSON.parse(localStorage.getItem('participantStatus') || '{}');
+    const times = getParticipantTimes();
+    const status = getParticipantStatus();
     return { times, status };
   } catch {
     return { times: {}, status: {} };

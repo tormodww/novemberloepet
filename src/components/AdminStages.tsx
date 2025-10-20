@@ -1,12 +1,13 @@
 import { useState } from 'react';
+import { getAdminStages, setAdminStages, getCustomStages, setCustomStages } from '../api/storageApi';
 // @ts-ignore
 import { stages as initialStages } from '../data/stages';
 const stageList: string[] = Array.isArray(initialStages) ? initialStages : [];
 
 export default function AdminStages() {
-  // Last fra localStorage hvis finnes, ellers fra customStages, ellers fra data/stages
-  const storedStages = JSON.parse(localStorage.getItem('adminStages') || 'null');
-  const customStages = JSON.parse(localStorage.getItem('customStages') || 'null');
+  // Last fra storage API hvis finnes, ellers fra customStages, ellers fra data/stages
+  const storedStages = getAdminStages();
+  const customStages = getCustomStages();
   const [stages, setStages] = useState<Array<{ name: string; ideal: string }>>(
     storedStages
       || (customStages
@@ -21,7 +22,7 @@ export default function AdminStages() {
       i === idx ? { ...s, [field]: value } : s
     );
     setStages(updated);
-    localStorage.setItem('adminStages', JSON.stringify(updated));
+    setAdminStages(updated);
   };
 
   // Legg til ny etappe
@@ -33,7 +34,7 @@ export default function AdminStages() {
   const removeStage = (idx: number) => {
     const updated = stages.filter((_, i) => i !== idx);
     setStages(updated);
-    localStorage.setItem('adminStages', JSON.stringify(updated));
+    setAdminStages(updated);
   };
 
   return (
@@ -80,7 +81,7 @@ export default function AdminStages() {
       >Legg til etappe</button>
       <button
         className="bg-red-600 text-white py-3 rounded-md text-lg font-semibold w-full mb-4"
-        onClick={() => {
+          onClick={() => {
           const defaultStages = [
             '1-SS MOSS MC/KÅK',
             '2-SS HVEKER',
@@ -94,9 +95,10 @@ export default function AdminStages() {
             name,
             ideal: (idx < 3 || idx === 6) ? '02:00' : '02:30'
           }));
-          localStorage.setItem('adminStages', JSON.stringify(defaultStagesWithIdeal));
-          localStorage.setItem('customStages', JSON.stringify(defaultStages));
-          window.location.reload();
+          setAdminStages(defaultStagesWithIdeal);
+          setCustomStages(defaultStages);
+          // Update state to reflect defaults
+          setStages(defaultStagesWithIdeal);
         }}
       >Tilbakestill til standard etapper</button>
   <a href="admin.html" className="block mt-4 text-blue-600 underline">Tilbake til admin</a>
